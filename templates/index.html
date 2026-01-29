@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notest - OneNote風ノートアプリ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- サイドバー -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>Notest</h1>
+                <button class="btn-new-tab" id="btnNewTab">+ 新しいタブ</button>
+            </div>
+            <div class="tabs-list" id="tabsList">
+                <!-- タブが動的に追加されます -->
+            </div>
+            <div class="sidebar-footer">
+                <button class="btn-settings" id="btnSettings">設定</button>
+            </div>
+        </div>
+
+        <!-- メインコンテンツエリア -->
+        <div class="main-content">
+            <!-- タブバー -->
+            <div class="tab-bar" id="tabBar">
+                <!-- ページタブが動的に追加されます -->
+            </div>
+
+            <!-- ページコンテンツ -->
+            <div class="page-content" id="pageContent">
+                <div class="empty-state" id="emptyState">
+                    <p>タブを選択するか、新しいタブを作成してください</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 新しいタブ -->
+    <div class="modal" id="modalNewTab">
+        <div class="modal-content">
+            <span class="close" id="closeNewTab">&times;</span>
+            <h2>新しいタブを作成</h2>
+            <input type="text" id="newTabName" placeholder="タブ名を入力" autofocus>
+            <div class="modal-actions">
+                <button class="btn-primary" id="btnCreateTab">作成</button>
+                <button class="btn-secondary" id="btnCancelTab">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 新しいページ -->
+    <div class="modal" id="modalNewPage">
+        <div class="modal-content">
+            <span class="close" id="closeNewPage">&times;</span>
+            <h2>新しいページを作成</h2>
+            <input type="text" id="newPageName" placeholder="ページ名を入力" autofocus>
+            <div class="modal-actions">
+                <button class="btn-primary" id="btnCreatePage">作成</button>
+                <button class="btn-secondary" id="btnCancelPage">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 設定 -->
+    <div class="modal" id="modalSettings">
+        <div class="modal-content">
+            <span class="close" id="closeSettings">&times;</span>
+            <h2>ストレージ設定</h2>
+            <div class="storage-locations" id="storageLocations">
+                <!-- ストレージ場所が動的に追加されます -->
+            </div>
+            <button class="btn-primary" id="btnAddStorage">+ ストレージ場所を追加</button>
+        </div>
+    </div>
+
+    <!-- モーダル: ストレージ追加 -->
+    <div class="modal" id="modalAddStorage">
+        <div class="modal-content">
+            <span class="close" id="closeAddStorage">&times;</span>
+            <h2>ストレージ場所を追加</h2>
+            <div class="form-group">
+                <label>名前:</label>
+                <input type="text" id="storageName" placeholder="例: ローカルフォルダ">
+            </div>
+            <div class="form-group">
+                <label>タイプ:</label>
+                <select id="storageType">
+                    <option value="local">ローカルフォルダ</option>
+                    <option value="onedrive">OneDrive</option>
+                    <option value="googledrive">Google Drive</option>
+                    <option value="icloud">iCloud</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>パス:</label>
+                <input type="text" id="storagePath" placeholder="フォルダパスを入力">
+                <button class="btn-secondary" id="btnBrowsePath">参照</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" id="btnSaveStorage">保存</button>
+                <button class="btn-secondary" id="btnCancelStorage">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
