@@ -1,13 +1,14 @@
+from dotenv import load_dotenv
+import os
+
+# 環境変数の読み込み (Configのインポート前に実行する必要があります)
+load_dotenv()
+
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
-import os
 from datetime import datetime
 import json
-from dotenv import load_dotenv
-
-# 環境変数の読み込み
-load_dotenv()
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -329,4 +330,4 @@ def create_storage_location():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)

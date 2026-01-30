@@ -1,4 +1,4 @@
-# Notest - OneNote風ノートアプリ
+# WowNote - OneNote風ノートアプリ
 
 FlaskとMySQLを使用した、OneNote風のWebアプリケーションです。
 
