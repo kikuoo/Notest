@@ -14,13 +14,13 @@ async function apiCall(url, options = {}) {
             headers: {
                 'Content-Type': 'application/json',
                 ...options.headers
-        },
-        ...options
-    });
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
+            },
+            ...options
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
     } catch (error) {
         console.error('API call failed:', error);
         alert('エラーが発生しました: ' + error.message);
@@ -75,7 +75,7 @@ function selectTab(tabId) {
     currentTabId = tabId;
     const tab = tabs.find(t => t.id === tabId);
     if (!tab) return;
-    
+
     renderPageTabs(tab.pages);
     if (tab.pages.length > 0) {
         selectPage(tab.pages[0].id);
@@ -89,7 +89,7 @@ function selectTab(tabId) {
 function renderPageTabs(pages) {
     const tabBar = document.getElementById('tabBar');
     tabBar.innerHTML = '';
-    
+
     pages.forEach(page => {
         const pageTab = document.createElement('div');
         pageTab.className = `page-tab ${currentPageId === page.id ? 'active' : ''}`;
@@ -100,7 +100,7 @@ function renderPageTabs(pages) {
         pageTab.onclick = () => selectPage(page.id);
         tabBar.appendChild(pageTab);
     });
-    
+
     const newPageBtn = document.createElement('button');
     newPageBtn.className = 'btn-new-page';
     newPageBtn.textContent = '+ ページ';
@@ -115,10 +115,10 @@ async function createPage(name) {
     }
     const page = await apiCall('/api/pages', {
         method: 'POST',
-        body: JSON.stringify({ 
-            tab_id: currentTabId, 
-            name, 
-            order_index: 0 
+        body: JSON.stringify({
+            tab_id: currentTabId,
+            name,
+            order_index: 0
         })
     });
     const tab = tabs.find(t => t.id === currentTabId);
@@ -157,20 +157,20 @@ async function selectPage(pageId) {
 // セクション関連
 function renderPageContent() {
     const pageContent = document.getElementById('pageContent');
-    
+
     if (!currentPageId) {
         pageContent.innerHTML = '<div class="empty-state"><p>ページを選択するか、新しいページを作成してください</p></div>';
         return;
     }
-    
+
     pageContent.innerHTML = '';
     pageContent.style.position = 'relative';
-    
+
     sections.forEach(section => {
         const sectionEl = createSectionElement(section);
         pageContent.appendChild(sectionEl);
     });
-    
+
     // セクション追加ボタン
     const addSectionBtn = document.createElement('button');
     addSectionBtn.className = 'btn-primary';
@@ -192,7 +192,7 @@ function createSectionElement(section) {
     sectionEl.style.width = `${section.width}px`;
     sectionEl.style.height = `${section.height}px`;
     sectionEl.style.zIndex = sectionZIndex++;
-    
+
     sectionEl.innerHTML = `
         <div class="section-header">
             <span class="section-title">${escapeHtml(section.name || 'セクション')}</span>
@@ -205,14 +205,14 @@ function createSectionElement(section) {
             ${renderSectionContent(section)}
         </div>
     `;
-    
+
     // ドラッグ機能
     makeDraggable(sectionEl, section);
-    
+
     // ドロップ機能
     const contentArea = sectionEl.querySelector('.section-content');
     setupDropZone(contentArea, section.id);
-    
+
     return sectionEl;
 }
 
@@ -220,9 +220,9 @@ function renderSectionContent(section) {
     if (!section.content_data) {
         return '<p style="color: #999;">コンテンツを追加してください</p>';
     }
-    
+
     const data = section.content_data;
-    
+
     switch (section.content_type) {
         case 'text':
             return `<textarea class="content-text" onchange="updateSectionContent(${section.id}, 'text', this.value)">${escapeHtml(data.text || '')}</textarea>`;
@@ -236,6 +236,26 @@ function renderSectionContent(section) {
                     <div style="margin-top: 5px; font-size: 12px; color: #0078d4;">クリックしてダウンロード</div>
                 </div>
             `;
+        case 'storage':
+            // ファイル一覧を非同期で取得して表示するためのコンテナを返す
+            // 実際の描画は fetchSectionFiles で行う
+            setTimeout(() => fetchSectionFiles(section.id), 0);
+            return `
+                <div class="file-browser" id="file-browser-${section.id}">
+                    <div class="file-toolbar">
+                        <div class="file-path" title="${escapeHtml(data.path || '')}">
+                            📁 ${escapeHtml(data.storage_type || 'local')}: ${escapeHtml(data.path || '未設定')}
+                        </div>
+                        <div class="file-actions">
+                             <button class="file-btn" onclick="openUploadDialog(${section.id})">アップロード</button>
+                             <button class="file-btn" onclick="configureSection(${section.id})">設定</button>
+                        </div>
+                    </div>
+                    <div class="file-list" id="file-list-${section.id}">
+                        <div style="padding: 10px; color: #666;">読み込み中...</div>
+                    </div>
+                </div>
+            `;
         default:
             return '<p>不明なコンテンツタイプ</p>';
     }
@@ -243,7 +263,7 @@ function renderSectionContent(section) {
 
 async function createNewSection() {
     if (!currentPageId) return;
-    
+
     const name = prompt('セクション名を入力してください（空白可）:');
     const section = await apiCall('/api/sections', {
         method: 'POST',
@@ -267,7 +287,7 @@ async function updateSectionContent(sectionId, contentType, value) {
     if (contentType === 'text') {
         contentData = { text: value };
     }
-    
+
     await apiCall(`/api/sections/${sectionId}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -279,10 +299,10 @@ async function updateSectionContent(sectionId, contentType, value) {
 async function changeSectionType(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
-    
-    const type = prompt('コンテンツタイプを選択:\n1. text\n2. link\n3. file', section.content_type);
-    if (!type || !['text', 'link', 'file'].includes(type)) return;
-    
+
+    const type = prompt('コンテンツタイプを選択:\n1. text\n2. link\n3. file\n4. storage', section.content_type);
+    if (!type || !['text', 'link', 'file', 'storage'].includes(type)) return;
+
     let contentData = {};
     if (type === 'link') {
         const url = prompt('URLを入力:');
@@ -291,8 +311,13 @@ async function changeSectionType(sectionId) {
         contentData = { url, title: title || url };
     } else if (type === 'text') {
         contentData = { text: '' };
+    } else if (type === 'storage') {
+        const storageType = prompt('ストレージタイプ (local, onedrive, googledrive, icloud):', 'local');
+        const path = prompt('フォルダパスを入力:');
+        if (!path) return;
+        contentData = { storage_type: storageType, path: path };
     }
-    
+
     await apiCall(`/api/sections/${sectionId}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -300,7 +325,7 @@ async function changeSectionType(sectionId) {
             content_data: contentData
         })
     });
-    
+
     const updatedSection = sections.find(s => s.id === sectionId);
     if (updatedSection) {
         updatedSection.content_type = type;
@@ -325,7 +350,7 @@ function makeDraggable(element, section) {
     const header = element.querySelector('.section-header');
     let isDragging = false;
     let startX, startY, initialX, initialY;
-    
+
     header.addEventListener('mousedown', (e) => {
         isDragging = true;
         startX = e.clientX;
@@ -335,32 +360,32 @@ function makeDraggable(element, section) {
         element.style.cursor = 'grabbing';
         e.preventDefault();
     });
-    
+
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         const newX = initialX + dx;
         const newY = initialY + dy;
-        
+
         element.style.left = `${newX}px`;
         element.style.top = `${newY}px`;
     });
-    
+
     document.addEventListener('mouseup', async () => {
         if (isDragging) {
             isDragging = false;
             element.style.cursor = 'move';
-            
+
             const rect = element.getBoundingClientRect();
             const pageRect = document.getElementById('pageContent').getBoundingClientRect();
             const newX = rect.left - pageRect.left;
             const newY = rect.top - pageRect.top;
-            
+
             await updateSectionPosition(section.id, newX, newY, rect.width, rect.height);
         }
     });
-    
+
     // リサイズの監視
     const resizeObserver = new ResizeObserver(async (entries) => {
         for (const entry of entries) {
@@ -377,7 +402,7 @@ function makeDraggable(element, section) {
 async function updateSectionPosition(sectionId, x, y, width, height) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
-    
+
     await apiCall(`/api/sections/${sectionId}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -387,7 +412,7 @@ async function updateSectionPosition(sectionId, x, y, width, height) {
             height: height
         })
     });
-    
+
     section.position_x = x;
     section.position_y = y;
     section.width = width;
@@ -399,15 +424,15 @@ function setupDropZone(element, sectionId) {
         e.preventDefault();
         element.classList.add('drag-over');
     });
-    
+
     element.addEventListener('dragleave', () => {
         element.classList.remove('drag-over');
     });
-    
+
     element.addEventListener('drop', async (e) => {
         e.preventDefault();
         element.classList.remove('drag-over');
-        
+
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             await uploadFileToSection(files[0], sectionId);
@@ -418,17 +443,17 @@ function setupDropZone(element, sectionId) {
 async function uploadFileToSection(file, sectionId) {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     try {
         const response = await fetch('/api/upload', {
             method: 'POST',
             body: formData
         });
-        
+
         if (!response.ok) throw new Error('Upload failed');
-        
+
         const fileData = await response.json();
-        
+
         await apiCall(`/api/sections/${sectionId}`, {
             method: 'PUT',
             body: JSON.stringify({
@@ -441,7 +466,7 @@ async function uploadFileToSection(file, sectionId) {
                 }
             })
         });
-        
+
         const section = sections.find(s => s.id === sectionId);
         if (section) {
             section.content_type = 'file';
@@ -454,6 +479,126 @@ async function uploadFileToSection(file, sectionId) {
     }
 }
 
+// ストレージ（フォルダ）機能
+async function fetchSectionFiles(sectionId) {
+    const listEl = document.getElementById(`file-list-${sectionId}`);
+    if (!listEl) return;
+
+    try {
+        const files = await apiCall(`/api/sections/${sectionId}/files`);
+
+        if (files.length === 0) {
+            listEl.innerHTML = '<div style="padding: 10px; color: #999;">ファイルがありません</div>';
+            return;
+        }
+
+        listEl.innerHTML = files.map(file => `
+            <div class="file-item">
+                <div class="file-icon">📄</div>
+                <div class="file-info">
+                    <div class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+                    <div class="file-meta">${formatFileSize(file.size)} - ${new Date(file.updated_at).toLocaleString()}</div>
+                </div>
+                <div class="file-actions">
+                    <button class="file-btn" onclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')">開く</button>
+                    <button class="file-btn delete" onclick="deleteStorageFile(${sectionId}, '${escapeHtml(file.name)}')">削除</button>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        listEl.innerHTML = `<div style="padding: 10px; color: red;">エラー: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+function openUploadDialog(sectionId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = async (e) => {
+        if (e.target.files.length > 0) {
+            await uploadFileToStorage(sectionId, e.target.files[0]);
+        }
+    };
+    input.click();
+}
+
+async function uploadFileToStorage(sectionId, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch(`/api/sections/${sectionId}/files`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+
+        await fetchSectionFiles(sectionId); // リロード
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('アップロードに失敗しました: ' + error.message);
+    }
+}
+
+function downloadStorageFile(sectionId, filename) {
+    window.location.href = `/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+}
+
+async function deleteStorageFile(sectionId, filename) {
+    if (!confirm(`ファイル "${filename}" を削除しますか？`)) return;
+
+    try {
+        await apiCall(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        });
+        await fetchSectionFiles(sectionId); // リロード
+    } catch (error) {
+        console.error('Delete error:', error);
+        alert('削除に失敗しました: ' + error.message);
+    }
+}
+
+function configureSection(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    // 現在の設定
+    const currentData = section.content_data || {};
+    const currentType = currentData.storage_type || 'local';
+    const currentPath = currentData.path || '';
+
+    // ユーザー入力（簡易的にpromptを使用。必要ならモーダルに変更可）
+    const type = prompt('ストレージタイプを選択 (local, onedrive, googledrive, icloud):', currentType);
+    if (!type) return;
+
+    const path = prompt('フォルダの絶対パスを入力してください:', currentPath);
+    if (!path) return;
+
+    updateSectionStorageConfig(sectionId, type, path);
+}
+
+async function updateSectionStorageConfig(sectionId, type, path) {
+    await apiCall(`/api/sections/${sectionId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+            content_type: 'storage',
+            content_data: {
+                storage_type: type,
+                path: path
+            }
+        })
+    });
+
+    // データ更新
+    const section = sections.find(s => s.id === sectionId);
+    if (section) {
+        section.content_type = 'storage';
+        section.content_data = { storage_type: type, path: path };
+    }
+    renderPageContent(); // 再描画
+}
+
 // ストレージ関連
 async function loadStorageLocations() {
     storageLocations = await apiCall('/api/storage-locations');
@@ -463,7 +608,7 @@ async function loadStorageLocations() {
 function renderStorageLocations() {
     const container = document.getElementById('storageLocations');
     container.innerHTML = '';
-    
+
     storageLocations.forEach(loc => {
         const item = document.createElement('div');
         item.className = 'storage-item';
@@ -526,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('closeNewTab').onclick = () => hideModal('modalNewTab');
     document.getElementById('btnCancelTab').onclick = () => hideModal('modalNewTab');
-    
+
     // ページ作成
     document.getElementById('btnCreatePage').onclick = () => {
         const name = document.getElementById('newPageName').value.trim();
@@ -536,14 +681,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('closeNewPage').onclick = () => hideModal('modalNewPage');
     document.getElementById('btnCancelPage').onclick = () => hideModal('modalNewPage');
-    
+
     // 設定
     document.getElementById('btnSettings').onclick = () => {
         loadStorageLocations();
         showModal('modalSettings');
     };
     document.getElementById('closeSettings').onclick = () => hideModal('modalSettings');
-    
+
     // ストレージ追加
     document.getElementById('btnAddStorage').onclick = () => showModal('modalAddStorage');
     document.getElementById('btnSaveStorage').onclick = () => {
@@ -558,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('closeAddStorage').onclick = () => hideModal('modalAddStorage');
     document.getElementById('btnCancelStorage').onclick = () => hideModal('modalAddStorage');
-    
+
     // Enterキーでモーダルを閉じる
     document.getElementById('newTabName').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') document.getElementById('btnCreateTab').click();
@@ -566,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('newPageName').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') document.getElementById('btnCreatePage').click();
     });
-    
+
     // 初期化
     loadTabs();
 });

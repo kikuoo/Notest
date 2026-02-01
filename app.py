@@ -9,6 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from config import Config
 from datetime import datetime
 import json
+import shutil
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -296,6 +297,100 @@ def get_file(section_id):
             return jsonify({'error': 'Access denied'}), 403
         
         return send_file(file_path, as_attachment=True, download_name=content.get('filename', 'file'))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# セクション内のファイル操作API
+@app.route('/api/sections/<int:section_id>/files', methods=['GET'])
+def list_section_files(section_id):
+    section = Section.query.get_or_404(section_id)
+    if section.content_type != 'storage':
+        return jsonify({'error': 'Not a storage section'}), 400
+    
+    try:
+        content_data = json.loads(section.content_data) if section.content_data else {}
+        path = content_data.get('path')
+        
+        if not path or not os.path.exists(path):
+            return jsonify({'error': 'Path not found'}), 404
+            
+        files = []
+        for filename in os.listdir(path):
+            file_path = os.path.join(path, filename)
+            if os.path.isfile(file_path):
+                stats = os.stat(file_path)
+                files.append({
+                    'name': filename,
+                    'size': stats.st_size,
+                    'updated_at': datetime.fromtimestamp(stats.st_mtime).isoformat()
+                })
+        
+        return jsonify(files)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sections/<int:section_id>/files', methods=['POST'])
+def upload_section_file(section_id):
+    section = Section.query.get_or_404(section_id)
+    if section.content_type != 'storage':
+        return jsonify({'error': 'Not a storage section'}), 400
+        
+    try:
+        content_data = json.loads(section.content_data) if section.content_data else {}
+        path = content_data.get('path')
+        
+        if not path or not os.path.exists(path):
+            return jsonify({'error': 'Path not found'}), 404
+            
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+            
+        file.save(os.path.join(path, file.filename))
+        
+        return jsonify({'message': 'File uploaded successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sections/<int:section_id>/files/<path:filename>', methods=['DELETE'])
+def delete_section_file(section_id, filename):
+    section = Section.query.get_or_404(section_id)
+    if section.content_type != 'storage':
+        return jsonify({'error': 'Not a storage section'}), 400
+        
+    try:
+        content_data = json.loads(section.content_data) if section.content_data else {}
+        path = content_data.get('path')
+        
+        if not path or not os.path.exists(path):
+            return jsonify({'error': 'Path not found'}), 404
+            
+        file_path = os.path.join(path, filename)
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+            
+        os.remove(file_path)
+        return jsonify({'message': 'File deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sections/<int:section_id>/files/<path:filename>', methods=['GET'])
+def download_section_file(section_id, filename):
+    section = Section.query.get_or_404(section_id)
+    if section.content_type != 'storage':
+        return jsonify({'error': 'Not a storage section'}), 400
+        
+    try:
+        content_data = json.loads(section.content_data) if section.content_data else {}
+        path = content_data.get('path')
+        
+        if not path or not os.path.exists(path):
+            return jsonify({'error': 'Path not found'}), 404
+            
+        return send_file(os.path.join(path, filename), as_attachment=True)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
