@@ -450,6 +450,7 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
 /* ファイルブラウザスタイル */
 .file-browser {
     display: flex;
@@ -554,4 +555,22 @@ body {
 .upload-area:hover {
     background-color: #f9f9f9;
     border-color: #999;
+}
+
+/* ディレクトリブラウザスタイル */
+.directory-item {
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.directory-item:hover {
+    background-color: #e3f2fd;
+}
+
+/* フォームグループ内のボタン配置調整 */
+.form-group input[type="text"] {
+    margin-bottom: 0;
 }

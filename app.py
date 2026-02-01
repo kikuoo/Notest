@@ -434,6 +434,41 @@ def create_storage_location():
         'path': location.path
     }), 201
 
+# システム関連API
+@app.route('/api/system/directories', methods=['GET'])
+def list_directories():
+    path = request.args.get('path')
+    
+    # パスが指定されていない場合はホームディレクトリ
+    if not path:
+        path = os.path.expanduser('~')
+    else:
+        path = os.path.expanduser(path)
+    
+    if not os.path.exists(path) or not os.path.isdir(path):
+        return jsonify({'error': 'Invalid path'}), 400
+        
+    try:
+        # 親ディレクトリ
+        parent_path = os.path.dirname(os.path.abspath(path))
+        
+        # サブディレクトリ一覧
+        directories = []
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.is_dir() and not entry.name.startswith('.'):
+                    directories.append(entry.name)
+        
+        directories.sort()
+        
+        return jsonify({
+            'current_path': os.path.abspath(path),
+            'parent_path': parent_path,
+            'directories': directories
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

@@ -568,24 +568,110 @@ async function deleteStorageFile(sectionId, filename) {
     }
 }
 
+// セクション設定モーダル関連
 function configureSection(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
-    // 現在の設定
+    // 現在の設定を取得
     const currentData = section.content_data || {};
     const currentType = currentData.storage_type || 'local';
     const currentPath = currentData.path || '';
 
-    // ユーザー入力（簡易的にpromptを使用。必要ならモーダルに変更可）
-    const type = prompt('ストレージタイプを選択 (local, onedrive, googledrive, icloud):', currentType);
-    if (!type) return;
+    // モーダルに値をセット
+    document.getElementById('sectionStorageType').value = currentType;
+    document.getElementById('sectionStoragePath').value = currentPath;
+    document.getElementById('editingSectionId').value = sectionId;
 
-    const path = prompt('フォルダの絶対パスを入力してください:', currentPath);
-    if (!path) return;
-
-    updateSectionStorageConfig(sectionId, type, path);
+    // モーダルを表示
+    showModal('modalSectionSettings');
 }
+
+// フォルダ参照ボタン
+function openDirectoryBrowser() {
+    const currentPathInput = document.getElementById('sectionStoragePath').value;
+    // 現在のパスがあればそこから、なければホームディレクトリから開始
+    loadDirectory(currentPathInput || '');
+    showModal('modalDirectoryBrowser');
+}
+
+async function loadDirectory(path) {
+    const listEl = document.getElementById('directoryList');
+    const pathEl = document.getElementById('currentBrowsePath');
+
+    pathEl.textContent = '読み込み中...';
+    listEl.innerHTML = '<div style="padding: 10px; color: #666;">読み込み中...</div>';
+
+    try {
+        const data = await apiCall(`/api/system/directories?path=${encodeURIComponent(path)}`);
+
+        // 現在のパスを表示
+        pathEl.textContent = data.current_path;
+        pathEl.dataset.path = data.current_path;
+        pathEl.dataset.parent = data.parent_path;
+
+        // ディレクトリ一覧を表示
+        if (data.directories.length === 0) {
+            listEl.innerHTML = '<div style="padding: 10px; color: #999;">サブフォルダはありません</div>';
+        } else {
+            listEl.innerHTML = data.directories.map(dir => `
+                <div class="directory-item" onclick="loadDirectory('${escapeHtml(data.current_path)}/${escapeHtml(dir)}')">
+                     📁 ${escapeHtml(dir)}
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        listEl.innerHTML = `<div style="padding: 10px; color: red;">エラー: ${escapeHtml(error.message)}</div>`;
+        pathEl.textContent = 'エラー';
+    }
+}
+
+// ディレクトリブラウザのイベント設定
+document.addEventListener('DOMContentLoaded', () => {
+    // 既存のDOMContentLoadedに追加するためのコード片。
+    // 実際の実装では下部のDOMContentLoaded内に追加する形になりますが、
+    // ここでは置換で見通しを良くするため関数として定義し、後で呼び出します。
+});
+
+function setupDirectoryBrowserEvents() {
+    // セクション設定モーダル
+    document.getElementById('closeSectionSettings').onclick = () => hideModal('modalSectionSettings');
+    document.getElementById('btnCancelSectionSettings').onclick = () => hideModal('modalSectionSettings');
+
+    document.getElementById('btnSaveSectionSettings').onclick = async () => {
+        const sectionId = parseInt(document.getElementById('editingSectionId').value);
+        const type = document.getElementById('sectionStorageType').value;
+        const path = document.getElementById('sectionStoragePath').value.trim();
+
+        if (!path) {
+            alert('フォルダパスを入力してください');
+            return;
+        }
+
+        await updateSectionStorageConfig(sectionId, type, path);
+        hideModal('modalSectionSettings');
+    };
+
+    document.getElementById('btnBrowseSectionPath').onclick = () => openDirectoryBrowser();
+
+    // ディレクトリブラウザモーダル
+    document.getElementById('closeDirectoryBrowser').onclick = () => hideModal('modalDirectoryBrowser');
+    document.getElementById('btnCancelDirectoryBrowser').onclick = () => hideModal('modalDirectoryBrowser');
+
+    document.getElementById('btnDirUp').onclick = () => {
+        const parent = document.getElementById('currentBrowsePath').dataset.parent;
+        if (parent) loadDirectory(parent);
+    };
+
+    document.getElementById('btnSelectDirectory').onclick = () => {
+        const selectedPath = document.getElementById('currentBrowsePath').dataset.path;
+        if (selectedPath) {
+            document.getElementById('sectionStoragePath').value = selectedPath;
+            hideModal('modalDirectoryBrowser');
+        }
+    };
+}
+
 
 async function updateSectionStorageConfig(sectionId, type, path) {
     await apiCall(`/api/sections/${sectionId}`, {
@@ -722,5 +808,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 初期化
+    setupDirectoryBrowserEvents();
     loadTabs();
 });
