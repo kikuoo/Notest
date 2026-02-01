@@ -206,6 +206,7 @@ function createSectionElement(section) {
         <div class="section-header">
             <span class="section-title">${escapeHtml(section.name || 'セクション')}</span>
             <div class="section-controls">
+                <button class="section-btn" onclick="configureSection(${section.id})" title="設定">⚙️</button>
                 <button class="section-btn" onclick="changeSectionType(${section.id})">タイプ変更</button>
                 <button class="section-btn" onclick="deleteSection(${section.id})">削除</button>
             </div>
