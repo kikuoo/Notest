@@ -129,6 +129,7 @@ def get_page(page_id):
             'name': section.name,
             'content_type': section.content_type,
             'content_data': json.loads(section.content_data) if section.content_data else None,
+            'memo': section.memo,
             'order_index': section.order_index,
             'width': section.width,
             'height': section.height,
@@ -178,6 +179,7 @@ def create_section():
         'name': section.name,
         'content_type': section.content_type,
         'content_data': json.loads(section.content_data) if section.content_data else None,
+        'memo': section.memo,
         'order_index': section.order_index,
         'width': section.width,
         'height': section.height,
@@ -195,6 +197,10 @@ def update_section(section_id):
         section.content_type = data['content_type']
     if 'content_data' in data:
         section.content_data = json.dumps(data['content_data'])
+    if 'memo' in data:
+        section.memo = data['memo']
+    if 'name' in data:
+        section.name = data['name']
     if 'width' in data:
         section.width = data['width']
     if 'height' in data:
@@ -212,6 +218,7 @@ def update_section(section_id):
         'name': section.name,
         'content_type': section.content_type,
         'content_data': json.loads(section.content_data) if section.content_data else None,
+        'memo': section.memo,
         'order_index': section.order_index,
         'width': section.width,
         'height': section.height,

@@ -204,12 +204,13 @@ function createSectionElement(section) {
 
     sectionEl.innerHTML = `
         <div class="section-header">
-            <span class="section-title">${escapeHtml(section.name || 'セクション')}</span>
+            <span class="section-title" title="${escapeHtml(section.name || 'セクション')}">${escapeHtml(section.name || 'セクション')}</span>
             <div class="section-controls">
-                <button class="section-btn" onclick="configureSection(${section.id})" title="設定">⚙️</button>
-                <button class="section-btn" onclick="changeSectionType(${section.id})">タイプ変更</button>
-                <button class="section-btn" onclick="deleteSection(${section.id})">削除</button>
+                <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定">⚙️</button>
             </div>
+        </div>
+        <div class="section-memo">
+            <textarea placeholder="メモ..." onchange="updateSectionContent(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
         </div>
         <div class="section-content" data-section-id="${section.id}">
             ${renderSectionContent(section)}
@@ -258,7 +259,6 @@ function renderSectionContent(section) {
                         </div>
                         <div class="file-actions">
                              <button class="file-btn" onclick="openUploadDialog(${section.id})">アップロード</button>
-                             <button class="file-btn" onclick="configureSection(${section.id})">設定</button>
                         </div>
                     </div>
                     <div class="file-list" id="file-list-${section.id}">
