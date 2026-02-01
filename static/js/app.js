@@ -18,7 +18,16 @@ async function apiCall(url, options = {}) {
             ...options
         });
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData && errorData.error) {
+                    errorMessage = errorData.error;
+                }
+            } catch (e) {
+                // JSON parse failed, use default message
+            }
+            throw new Error(errorMessage);
         }
         return await response.json();
     } catch (error) {

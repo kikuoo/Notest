@@ -311,8 +311,11 @@ def list_section_files(section_id):
         content_data = json.loads(section.content_data) if section.content_data else {}
         path = content_data.get('path')
         
+        if path:
+            path = os.path.expanduser(path)
+        
         if not path or not os.path.exists(path):
-            return jsonify({'error': 'Path not found'}), 404
+            return jsonify({'error': f'Path not found: {path}'}), 404
             
         files = []
         for filename in os.listdir(path):
@@ -339,8 +342,11 @@ def upload_section_file(section_id):
         content_data = json.loads(section.content_data) if section.content_data else {}
         path = content_data.get('path')
         
+        if path:
+            path = os.path.expanduser(path)
+        
         if not path or not os.path.exists(path):
-            return jsonify({'error': 'Path not found'}), 404
+            return jsonify({'error': f'Path not found: {path}'}), 404
             
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'}), 400
@@ -365,8 +371,11 @@ def delete_section_file(section_id, filename):
         content_data = json.loads(section.content_data) if section.content_data else {}
         path = content_data.get('path')
         
+        if path:
+            path = os.path.expanduser(path)
+        
         if not path or not os.path.exists(path):
-            return jsonify({'error': 'Path not found'}), 404
+            return jsonify({'error': f'Path not found: {path}'}), 404
             
         file_path = os.path.join(path, filename)
         if not os.path.exists(file_path):
@@ -387,8 +396,11 @@ def download_section_file(section_id, filename):
         content_data = json.loads(section.content_data) if section.content_data else {}
         path = content_data.get('path')
         
+        if path:
+            path = os.path.expanduser(path)
+        
         if not path or not os.path.exists(path):
-            return jsonify({'error': 'Path not found'}), 404
+            return jsonify({'error': f'Path not found: {path}'}), 404
             
         return send_file(os.path.join(path, filename), as_attachment=True)
     except Exception as e:
