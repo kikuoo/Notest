@@ -570,22 +570,38 @@ async function deleteStorageFile(sectionId, filename) {
 }
 
 // セクション設定モーダル関連
+// セクション設定モーダル関連
 function configureSection(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
     // 現在の設定を取得
     const currentData = section.content_data || {};
-    const currentType = currentData.storage_type || 'local';
+    const currentType = section.content_type || 'text';
+    const currentStorageType = currentData.storage_type || 'local';
     const currentPath = currentData.path || '';
 
     // モーダルに値をセット
-    document.getElementById('sectionStorageType').value = currentType;
-    document.getElementById('sectionStoragePath').value = currentPath;
     document.getElementById('editingSectionId').value = sectionId;
+    document.getElementById('sectionNameInput').value = section.name || '';
+    document.getElementById('sectionContentType').value = currentType;
+    document.getElementById('sectionStorageType').value = currentStorageType;
+    document.getElementById('sectionStoragePath').value = currentPath;
+
+    // ストレージ設定の表示制御
+    toggleStorageSettings(currentType);
 
     // モーダルを表示
     showModal('modalSectionSettings');
+}
+
+function toggleStorageSettings(type) {
+    const storageSettings = document.getElementById('storageSettingsGroup');
+    if (type === 'storage') {
+        storageSettings.style.display = 'block';
+    } else {
+        storageSettings.style.display = 'none';
+    }
 }
 
 // フォルダ参照ボタン
@@ -639,18 +655,72 @@ function setupDirectoryBrowserEvents() {
     document.getElementById('closeSectionSettings').onclick = () => hideModal('modalSectionSettings');
     document.getElementById('btnCancelSectionSettings').onclick = () => hideModal('modalSectionSettings');
 
+    // タイプ変更時の表示切り替え
+    document.getElementById('sectionContentType').onchange = (e) => {
+        toggleStorageSettings(e.target.value);
+    };
+
+    // セクション保存
     document.getElementById('btnSaveSectionSettings').onclick = async () => {
         const sectionId = parseInt(document.getElementById('editingSectionId').value);
-        const type = document.getElementById('sectionStorageType').value;
+        const name = document.getElementById('sectionNameInput').value.trim();
+        const contentType = document.getElementById('sectionContentType').value;
+        const storageType = document.getElementById('sectionStorageType').value;
         const path = document.getElementById('sectionStoragePath').value.trim();
 
-        if (!path) {
-            alert('フォルダパスを入力してください');
-            return;
+        const updateData = {
+            name: name,
+            content_type: contentType,
+            content_data: {}
+        };
+
+        const section = sections.find(s => s.id === sectionId);
+        // コンテンツタイプに応じたデータをセット
+        if (contentType === 'storage') {
+            if (!path) {
+                alert('フォルダパスを入力してください');
+                return;
+            }
+            updateData.content_data = {
+                storage_type: storageType,
+                path: path
+            };
+        } else if (contentType === 'text') {
+            if (section.content_type === 'text') {
+                updateData.content_data = section.content_data;
+            } else {
+                updateData.content_data = { text: '' };
+            }
+        } else if (contentType === 'link') {
+            if (section.content_type === 'link') {
+                updateData.content_data = section.content_data;
+            } else {
+                updateData.content_data = { url: '#', title: 'New Link' };
+            }
         }
 
-        await updateSectionStorageConfig(sectionId, type, path);
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData)
+        });
+
+        // ローカルデータ更新して再描画
+        if (section) {
+            section.name = name;
+            section.content_type = contentType;
+            section.content_data = updateData.content_data;
+        }
         hideModal('modalSectionSettings');
+        renderPageContent(); // 再描画
+    };
+
+    // セクション削除
+    document.getElementById('btnDeleteSection').onclick = async () => {
+        const sectionId = parseInt(document.getElementById('editingSectionId').value);
+        if (confirm('本当にこのセクションを削除しますか？')) {
+            await deleteSection(sectionId);
+            hideModal('modalSectionSettings');
+        }
     };
 
     document.getElementById('btnBrowseSectionPath').onclick = () => openDirectoryBrowser();
