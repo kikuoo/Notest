@@ -740,9 +740,6 @@ function showFileContextMenu(e, sectionId, filename) {
         <div class="context-menu-item" onclick="copyFile(${sectionId}, '${escapeHtml(filename)}')">📋 コピー</div>
     `;
 
-    
-    // 貼り付けは常に表示（クリップボードが空の場合は無効化）
-    menuItems += `<div class="context-menu-item" onclick="pasteFile(${sectionId})" ${!clipboardFile ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>📄 貼り付け</div>`;
 
     menuItems += `
         <div class="context-menu-item" onclick="shareFile('${downloadUrl}', '${escapeHtml(filename)}')">🔗 共有</div>
