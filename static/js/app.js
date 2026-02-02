@@ -577,7 +577,7 @@ async function fetchSectionFiles(sectionId) {
         const files = await apiCall(`/api/sections/${sectionId}/files`);
 
         if (files.length === 0) {
-            listEl.innerHTML = '<div style="padding: 10px; color: #999;">ファイルがありません</div>';
+            listEl.innerHTML = '<div style="padding: 10px; color: #999;" oncontextmenu="showEmptyContextMenu(event, ' + sectionId + ')">ファイルがありません</div>';
             return;
         }
 
@@ -740,7 +740,7 @@ function showFileContextMenu(e, sectionId, filename) {
         <div class="context-menu-item" onclick="copyFile(${sectionId}, '${escapeHtml(filename)}')">📋 コピー</div>
     `;
 
-    
+
     // 貼り付けは常に表示（クリップボードが空の場合は無効化）
     menuItems += `<div class="context-menu-item" onclick="pasteFile(${sectionId})" ${!clipboardFile ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>📄 貼り付け</div>`;
 
@@ -778,7 +778,6 @@ function copyFileLink(url) {
 // ファイルコピー（クリップボードに保存）
 function copyFile(sectionId, filename) {
     clipboardFile = { sectionId, filename };
-    alert(`${filename} をコピーしました`);
     hideContextMenu();
 }
 
@@ -846,6 +845,35 @@ async function extractZipFile(sectionId, filename) {
         alert('解凍に失敗しました: ' + error.message);
     }
 }
+
+// 空のファイルリスト用コンテキストメニュー
+function showEmptyContextMenu(e, sectionId) {
+    e.preventDefault();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    let menuItems = '';
+
+    // 貼り付けのみ表示
+    if (clipboardFile) {
+        menuItems += `<div class="context-menu-item" onclick="pasteFile(${sectionId})">📄 貼り付け</div>`;
+    } else {
+        menuItems += `<div class="context-menu-item" style="opacity: 0.5; pointer-events: none;">📄 貼り付け</div>`;
+    }
+
+    contextMenu.innerHTML = menuItems;
+
+    document.body.appendChild(contextMenu);
+
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
+}
+
 
 // セクション設定モーダル関連
 // セクション設定モーダル関連
