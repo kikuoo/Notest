@@ -10,6 +10,7 @@ let sectionZIndex = 1000;
 // API呼び出し関数
 async function apiCall(url, options = {}) {
     try {
+        console.log(`API Call: ${url}`, options);
         const response = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
@@ -27,9 +28,12 @@ async function apiCall(url, options = {}) {
             } catch (e) {
                 // JSON parse failed, use default message
             }
+            console.error(`API Error (${url}):`, errorMessage);
             throw new Error(errorMessage);
         }
-        return await response.json();
+        const data = await response.json();
+        console.log(`API Success (${url}):`, data);
+        return data;
     } catch (error) {
         console.error('API call failed:', error);
         alert('エラーが発生しました: ' + error.message);
@@ -39,10 +43,20 @@ async function apiCall(url, options = {}) {
 
 // タブ関連
 async function loadTabs() {
-    tabs = await apiCall('/api/tabs');
-    renderTabs();
-    if (tabs.length > 0 && !currentTabId) {
-        selectTab(tabs[0].id);
+    try {
+        console.log('Start loading tabs...');
+        tabs = await apiCall('/api/tabs');
+        console.log('Tabs loaded:', tabs);
+        renderTabs();
+        if (tabs.length > 0 && !currentTabId) {
+            console.log('Selecting first tab:', tabs[0].id);
+            selectTab(tabs[0].id);
+        } else {
+            console.log('No tabs to select or tab already selected');
+        }
+    } catch (e) {
+        console.error('Failed to load tabs:', e);
+        alert('タブの読み込みに失敗しました: ' + e.message);
     }
 }
 
