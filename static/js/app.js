@@ -293,17 +293,18 @@ async function createNewSection() {
 }
 
 async function updateSectionContent(sectionId, contentType, value) {
-    let contentData = {};
     if (contentType === 'text') {
-        contentData = { text: value };
+        const contentData = { text: value };
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content_data: contentData })
+        });
+    } else if (contentType === 'memo') {
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ memo: value })
+        });
     }
-
-    await apiCall(`/api/sections/${sectionId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-            content_data: contentData
-        })
-    });
 }
 
 async function changeSectionType(sectionId) {
