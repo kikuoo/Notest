@@ -41,6 +41,9 @@ async function apiCall(url, options = {}) {
 async function loadTabs() {
     tabs = await apiCall('/api/tabs');
     renderTabs();
+    if (tabs.length > 0 && !currentTabId) {
+        selectTab(tabs[0].id);
+    }
 }
 
 async function createTab(name) {
@@ -48,6 +51,7 @@ async function createTab(name) {
         method: 'POST',
         body: JSON.stringify({ name, order_index: tabs.length })
     });
+    tab.pages = []; // 初期化
     tabs.push(tab);
     renderTabs();
     selectTab(tab.id);
@@ -73,7 +77,7 @@ function renderTabs() {
         tabItem.className = `tab-item ${currentTabId === tab.id ? 'active' : ''}`;
         tabItem.innerHTML = `
             <span class="tab-item-name">${escapeHtml(tab.name)}</span>
-            <button class="tab-item-delete" onclick="deleteTab(${tab.id})">×</button>
+            <button class="tab-item-delete" onclick="event.stopPropagation(); deleteTab(${tab.id})">×</button>
         `;
         tabItem.onclick = () => selectTab(tab.id);
         tabsList.appendChild(tabItem);
@@ -85,9 +89,17 @@ function selectTab(tabId) {
     const tab = tabs.find(t => t.id === tabId);
     if (!tab) return;
 
-    renderPageTabs(tab.pages);
-    if (tab.pages.length > 0) {
-        selectPage(tab.pages[0].id);
+    // タブ選択状態の更新
+    renderTabs();
+
+    const pages = tab.pages || [];
+    renderPageTabs(pages);
+
+    if (pages.length > 0) {
+        // 最初のページを選択（まだ選択されていない場合）
+        // または、UIの挙動としてタブ切り替え時は常に最初のページにするか、
+        // 前回の状態を覚えるかは仕様次第だが、ここではシンプルに最初のページへ。
+        selectPage(pages[0].id);
     } else {
         currentPageId = null;
         renderPageContent();
