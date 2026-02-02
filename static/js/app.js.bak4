@@ -302,6 +302,13 @@ function renderSectionContent(section) {
             return `
                 <div class="file-browser" id="file-browser-${section.id}">
                     <div class="file-toolbar">
+                        <div class="file-path" title="${escapeHtml(data.path || '')}">
+                            📁 ${escapeHtml(data.storage_type || 'local')}: ${escapeHtml(data.path || '未設定')}
+                        </div>
+                        <div class="file-actions">
+                             <!-- Upload button removed -->
+                        </div>
+                    </div>
                     <div class="file-list" id="file-list-${section.id}">
                         <div style="padding: 10px; color: #666;">読み込み中...</div>
                     </div>
@@ -798,15 +805,6 @@ async function pasteFile(targetSectionId) {
         if (!response.ok) throw new Error('Copy failed');
 
         await fetchSectionFiles(targetSectionId);
-
-        // 切り取りの場合は元のファイルを削除
-        if (clipboardFile.isCut && clipboardFile.sectionId !== targetSectionId) {
-            await apiCall(`/api/sections/${clipboardFile.sectionId}/files/${encodeURIComponent(clipboardFile.filename)}`, {
-                method: 'DELETE'
-            });
-            await fetchSectionFiles(clipboardFile.sectionId);
-            clipboardFile = null; // 切り取り後はクリア
-        }
     } catch (error) {
         console.error('Paste error:', error);
         alert('貼り付けに失敗しました: ' + error.message);
