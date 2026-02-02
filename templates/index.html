@@ -113,52 +113,73 @@
             <span class="close" id="closeSectionSettings">&times;</span>
             <h2>セクション設定</h2>
             <div class="form-group">
-                <label>ストレージタイプ:</label>
-                <select id="sectionStorageType">
-                    <option value="local">ローカル (Local Folder)</option>
-                    <option value="onedrive">OneDrive</option>
-                    <option value="googledrive">Google Drive</option>
-                    <option value="icloud">iCloud</option>
-                </select>
+                <label>セクション名:</label>
+                <input type="text" id="sectionNameInput" placeholder="セクション名">
             </div>
             <div class="form-group">
-                <label>フォルダパス:</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="sectionStoragePath" placeholder="フォルダパスを入力"
-                        style="margin-bottom: 0; flex: 1;">
-                    <button class="btn-secondary" id="btnBrowseSectionPath" style="white-space: nowrap;">参照</button>
-                </div>
+                <label>コンテンツタイプ:</label>
+                <select id="sectionContentType">
+                    <option value="text">テキスト (Text)</option>
+                    <option value="link">リンク (Link)</option>
+                    <option value="file">ファイル (File)</option>
+                    <option value="storage">ストレージ (Storage)</option>
+                </select>
             </div>
-            <input type="hidden" id="editingSectionId">
-            <div class="modal-actions">
-                <button class="btn-primary" id="btnSaveSectionSettings">保存</button>
-                <button class="btn-secondary" id="btnCancelSectionSettings">キャンセル</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- モーダル: ディレクトリブラウザ -->
-    <div class="modal" id="modalDirectoryBrowser" style="z-index: 2000;">
-        <div class="modal-content" style="max-width: 600px; height: 70vh; display: flex; flex-direction: column;">
-            <span class="close" id="closeDirectoryBrowser">&times;</span>
-            <h2>フォルダ選択</h2>
-            <div
-                style="background: #f0f0f0; padding: 10px; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 10px;">
-                <button class="btn-secondary" id="btnDirUp" style="padding: 5px 10px;">⬆️ 上へ</button>
-                <div id="currentBrowsePath"
-                    style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">/
+            <div id="storageSettingsGroup"
+                style="display: none; padding-left: 15px; border-left: 3px solid #0078d4; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>ストレージタイプ:</label>
+                    <select id="sectionStorageType">
+                        <option value="local">ローカル (Local Folder)</option>
+                        <option value="onedrive">OneDrive</option>
+                        <option value="googledrive">Google Drive</option>
+                        <option value="icloud">iCloud</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>フォルダパス:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="sectionStoragePath" placeholder="フォルダパスを入力"
+                            style="margin-bottom: 0; flex: 1;">
+                        <button class="btn-secondary" id="btnBrowseSectionPath" style="white-space: nowrap;">参照</button>
+                    </div>
+                </div>
+                <div style="border-top: 1px solid #eee; margin-top: 20px; padding-top: 15px;">
+                    <button class="btn-secondary" id="btnDeleteSection"
+                        style="color: #d9534f; border-color: #d9534f; width: 100%;">このセクションを削除</button>
+                </div>
+                <input type="hidden" id="editingSectionId">
+                <div class="modal-actions">
+                    <button class="btn-primary" id="btnSaveSectionSettings">保存</button>
+                    <button class="btn-secondary" id="btnCancelSectionSettings">キャンセル</button>
                 </div>
             </div>
-            <div id="directoryList" style="flex: 1; overflow-y: auto; padding: 10px;">
-                <!-- ディレクトリ一覧がここに表示されます -->
-            </div>
-            <div class="modal-actions" style="margin-top: 0; padding-top: 15px; border-top: 1px solid #eee;">
-                <button class="btn-primary" id="btnSelectDirectory">このフォルダを選択</button>
-                <button class="btn-secondary" id="btnCancelDirectoryBrowser">キャンセル</button>
+        </div>
+
+        <!-- モーダル: ディレクトリブラウザ -->
+        <div class="modal" id="modalDirectoryBrowser" style="z-index: 2000;">
+            <div class="modal-content" style="max-width: 600px; height: 70vh; display: flex; flex-direction: column;">
+                <span class="close" id="closeDirectoryBrowser">&times;</span>
+                <h2>フォルダ選択</h2>
+                <div
+                    style="background: #f0f0f0; padding: 10px; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 10px;">
+                    <button class="btn-secondary" id="btnDirUp" style="padding: 5px 10px;">⬆️ 上へ</button>
+                    <div id="currentBrowsePath"
+                        style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        /
+                    </div>
+                </div>
+                <div id="directoryList" style="flex: 1; overflow-y: auto; padding: 10px;">
+                    <!-- ディレクトリ一覧がここに表示されます -->
+                </div>
+                <div class="modal-actions" style="margin-top: 0; padding-top: 15px; border-top: 1px solid #eee;">
+                    <button class="btn-primary" id="btnSelectDirectory">このフォルダを選択</button>
+                    <button class="btn-secondary" id="btnCancelDirectoryBrowser">キャンセル</button>
+                </div>
             </div>
         </div>
-    </div>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 
 </html>
