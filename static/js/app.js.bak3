@@ -797,6 +797,7 @@ async function pasteFile(targetSectionId) {
         if (!response.ok) throw new Error('Copy failed');
 
         await fetchSectionFiles(targetSectionId);
+        alert(`${clipboardFile.filename} を貼り付けました`);
     } catch (error) {
         console.error('Paste error:', error);
         alert('貼り付けに失敗しました: ' + error.message);
