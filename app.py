@@ -459,6 +459,85 @@ def move_section_file(source_section_id, filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sections/<int:source_section_id>/files/<path:filename>/copy', methods=['POST'])
+def copy_section_file(source_section_id, filename):
+    source_section = Section.query.get_or_404(source_section_id)
+    if source_section.content_type != 'storage':
+        return jsonify({'error': 'Source is not a storage section'}), 400
+        
+    data = request.json
+    target_section_id = data.get('target_section_id')
+    if not target_section_id:
+        return jsonify({'error': 'Target section ID required'}), 400
+        
+    target_section = Section.query.get_or_404(target_section_id)
+    if target_section.content_type != 'storage':
+        return jsonify({'error': 'Target is not a storage section'}), 400
+        
+    try:
+        source_data = json.loads(source_section.content_data) if source_section.content_data else {}
+        target_data = json.loads(target_section.content_data) if target_section.content_data else {}
+        
+        source_path = source_data.get('path')
+        target_path = target_data.get('path')
+        
+        if source_path:
+            source_path = os.path.expanduser(source_path)
+        if target_path:
+            target_path = os.path.expanduser(target_path)
+            
+        if not source_path or not os.path.exists(source_path):
+            return jsonify({'error': f'Source path not found: {source_path}'}), 404
+        if not target_path or not os.path.exists(target_path):
+            return jsonify({'error': f'Target path not found: {target_path}'}), 404
+            
+        source_file = os.path.join(source_path, filename)
+        target_file = os.path.join(target_path, filename)
+        
+        if not os.path.exists(source_file):
+            return jsonify({'error': 'Source file not found'}), 404
+            
+        # ファイルをコピー
+        shutil.copy2(source_file, target_file)
+        
+        return jsonify({'message': 'File copied successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sections/<int:section_id>/files/<path:filename>/extract', methods=['POST'])
+def extract_zip_file(section_id, filename):
+    section = Section.query.get_or_404(section_id)
+    if section.content_type != 'storage':
+        return jsonify({'error': 'Not a storage section'}), 400
+        
+    try:
+        content_data = json.loads(section.content_data) if section.content_data else {}
+        path = content_data.get('path')
+        
+        if path:
+            path = os.path.expanduser(path)
+            
+        if not path or not os.path.exists(path):
+            return jsonify({'error': f'Path not found: {path}'}), 404
+            
+        zip_file_path = os.path.join(path, filename)
+        
+        if not os.path.exists(zip_file_path):
+            return jsonify({'error': 'ZIP file not found'}), 404
+            
+        if not filename.lower().endswith('.zip'):
+            return jsonify({'error': 'Not a ZIP file'}), 400
+            
+        # ZIPファイルを解凍
+        import zipfile
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extractall(path)
+        
+        return jsonify({'message': 'ZIP file extracted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 
 # ストレージ場所関連のAPI
 @app.route('/api/storage-locations', methods=['GET'])

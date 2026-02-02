@@ -722,6 +722,8 @@ async function moveFileBetweenSections(sourceSectionId, targetSectionId, filenam
 }
 
 // 拡張されたコンテキストメニュー
+let clipboardFile = null; // ファイルコピー用のクリップボード
+
 function showFileContextMenu(e, sectionId, filename) {
     e.preventDefault();
     hideContextMenu();
@@ -732,12 +734,30 @@ function showFileContextMenu(e, sectionId, filename) {
     contextMenu.style.top = `${e.clientY}px`;
 
     const downloadUrl = `${window.location.origin}/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+    const isZipFile = filename.toLowerCase().endsWith('.zip');
 
-    contextMenu.innerHTML = `
-        <div class="context-menu-item" onclick="copyFileLink('${downloadUrl}')">🔗 リンクをコピー</div>
-        <div class="context-menu-item" onclick="downloadStorageFile(${sectionId}, '${escapeHtml(filename)}'); hideContextMenu();">📥 ダウンロード</div>
-        <div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">🗑️ 削除</div>
+    let menuItems = `
+        <div class="context-menu-item" onclick="copyFile(${sectionId}, '${escapeHtml(filename)}')">📋 コピー</div>
     `;
+
+    // 貼り付けはクリップボードにファイルがある場合のみ表示
+    if (clipboardFile) {
+        menuItems += `<div class="context-menu-item" onclick="pasteFile(${sectionId})">📄 貼り付け</div>`;
+    }
+
+    menuItems += `
+        <div class="context-menu-item" onclick="shareFile('${downloadUrl}', '${escapeHtml(filename)}')">🔗 共有</div>
+        <div class="context-menu-item" onclick="downloadStorageFile(${sectionId}, '${escapeHtml(filename)}'); hideContextMenu();">📥 ダウンロード</div>
+    `;
+
+    // ZIPファイルの場合は解凍オプションを追加
+    if (isZipFile) {
+        menuItems += `<div class="context-menu-item" onclick="extractZipFile(${sectionId}, '${escapeHtml(filename)}')">📦 解凍</div>`;
+    }
+
+    menuItems += `<div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">🗑️ 削除</div>`;
+
+    contextMenu.innerHTML = menuItems;
 
     document.body.appendChild(contextMenu);
 
@@ -754,6 +774,78 @@ function copyFileLink(url) {
         console.error('Copy failed:', err);
         alert('コピーに失敗しました');
     });
+}
+
+// ファイルコピー（クリップボードに保存）
+function copyFile(sectionId, filename) {
+    clipboardFile = { sectionId, filename };
+    alert(`${filename} をコピーしました`);
+    hideContextMenu();
+}
+
+// ファイル貼り付け
+async function pasteFile(targetSectionId) {
+    if (!clipboardFile) return;
+
+    hideContextMenu();
+
+    try {
+        const response = await fetch(`/api/sections/${clipboardFile.sectionId}/files/${encodeURIComponent(clipboardFile.filename)}/copy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_section_id: targetSectionId })
+        });
+
+        if (!response.ok) throw new Error('Copy failed');
+
+        await fetchSectionFiles(targetSectionId);
+        alert(`${clipboardFile.filename} を貼り付けました`);
+    } catch (error) {
+        console.error('Paste error:', error);
+        alert('貼り付けに失敗しました: ' + error.message);
+    }
+}
+
+// ファイル共有（リンクをコピー）
+function shareFile(url, filename) {
+    if (navigator.share) {
+        // Web Share APIが利用可能な場合
+        navigator.share({
+            title: filename,
+            text: `${filename}を共有`,
+            url: url
+        }).then(() => {
+            hideContextMenu();
+        }).catch(err => {
+            console.error('Share failed:', err);
+            // フォールバック: リンクをコピー
+            copyFileLink(url);
+        });
+    } else {
+        // Web Share APIが利用できない場合はリンクをコピー
+        copyFileLink(url);
+    }
+}
+
+// ZIPファイル解凍
+async function extractZipFile(sectionId, filename) {
+    hideContextMenu();
+
+    if (!confirm(`${filename} を解凍しますか？`)) return;
+
+    try {
+        const response = await fetch(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}/extract`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('Extract failed');
+
+        await fetchSectionFiles(sectionId);
+        alert(`${filename} を解凍しました`);
+    } catch (error) {
+        console.error('Extract error:', error);
+        alert('解凍に失敗しました: ' + error.message);
+    }
 }
 
 // セクション設定モーダル関連
