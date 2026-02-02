@@ -48,7 +48,18 @@ async function loadTabs() {
         tabs = await apiCall('/api/tabs');
         console.log('Tabs loaded:', tabs);
         renderTabs();
-        if (tabs.length > 0 && !currentTabId) {
+
+        // localStorageから前回の状態を復元
+        const savedTabId = localStorage.getItem('currentTabId');
+        const savedPageId = localStorage.getItem('currentPageId');
+
+        if (savedTabId && tabs.find(t => t.id === parseInt(savedTabId))) {
+            // 保存されたタブが存在する場合は復元
+            console.log('Restoring saved tab:', savedTabId);
+            currentTabId = parseInt(savedTabId);
+            await selectTab(currentTabId, savedPageId ? parseInt(savedPageId) : null);
+        } else if (tabs.length > 0 && !currentTabId) {
+            // 保存された状態がない、または無効な場合は最初のタブを選択
             console.log('Selecting first tab:', tabs[0].id);
             selectTab(tabs[0].id);
         } else {
@@ -98,10 +109,13 @@ function renderTabs() {
     });
 }
 
-function selectTab(tabId) {
+async function selectTab(tabId, preferredPageId = null) {
     currentTabId = tabId;
     const tab = tabs.find(t => t.id === tabId);
     if (!tab) return;
+
+    // localStorageに保存
+    localStorage.setItem('currentTabId', tabId);
 
     // タブ選択状態の更新
     renderTabs();
@@ -110,12 +124,16 @@ function selectTab(tabId) {
     renderPageTabs(pages);
 
     if (pages.length > 0) {
-        // 最初のページを選択（まだ選択されていない場合）
-        // または、UIの挙動としてタブ切り替え時は常に最初のページにするか、
-        // 前回の状態を覚えるかは仕様次第だが、ここではシンプルに最初のページへ。
-        selectPage(pages[0].id);
+        // preferredPageIdが指定されていて、そのページが存在する場合はそれを選択
+        if (preferredPageId && pages.find(p => p.id === preferredPageId)) {
+            selectPage(preferredPageId);
+        } else {
+            // それ以外は最初のページを選択
+            selectPage(pages[0].id);
+        }
     } else {
         currentPageId = null;
+        localStorage.removeItem('currentPageId');
         renderPageContent();
     }
 }
@@ -183,6 +201,10 @@ async function deletePage(pageId) {
 
 async function selectPage(pageId) {
     currentPageId = pageId;
+
+    // localStorageに保存
+    localStorage.setItem('currentPageId', pageId);
+
     const page = await apiCall(`/api/pages/${pageId}`);
     sections = page.sections || [];
     renderPageContent();
@@ -479,6 +501,9 @@ function setupDropZone(element, sectionId) {
         element.classList.remove('drag-over');
 
         const files = e.dataTransfer.files;
+        const draggedFileData = e.dataTransfer.getData('application/x-file-transfer');
+
+        // OSからのファイルドロップ
         if (files.length > 0) {
             const section = sections.find(s => s.id === sectionId);
             if (section && section.content_type === 'storage') {
@@ -490,6 +515,15 @@ function setupDropZone(element, sectionId) {
             } else {
                 // 通常のセクションの場合は、既存の動作（セクションをファイルタイプに変換）
                 await uploadFileToSection(files[0], sectionId);
+            }
+        }
+        // 他のセクションからのファイルドロップ
+        else if (draggedFileData) {
+            const { sourceSectionId, filename } = JSON.parse(draggedFileData);
+            const targetSection = sections.find(s => s.id === sectionId);
+
+            if (targetSection && targetSection.content_type === 'storage' && sourceSectionId !== sectionId) {
+                await moveFileBetweenSections(sourceSectionId, sectionId, filename);
             }
         }
     });
@@ -549,9 +583,13 @@ async function fetchSectionFiles(sectionId) {
 
         listEl.innerHTML = files.map(file => `
             <div class="file-item" 
+                 draggable="true"
+                 data-section-id="${sectionId}"
+                 data-filename="${escapeHtml(file.name)}"
                  title="${escapeHtml(file.name)}"
                  ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')"
-                 oncontextmenu="showContextMenu(event, ${sectionId}, '${escapeHtml(file.name)}')">
+                 oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(file.name)}')"
+                 ondragstart="handleFileDragStart(event, ${sectionId}, '${escapeHtml(file.name)}')">
                 <div class="file-icon">📄</div>
                 <div class="file-info">
                     <div class="file-name">${escapeHtml(file.name)}</div>
@@ -647,6 +685,75 @@ function hideContextMenu() {
 async function deleteStorageFileAndHide(sectionId, filename) {
     hideContextMenu();
     await deleteStorageFile(sectionId, filename);
+}
+
+// ファイルドラッグ関連
+function handleFileDragStart(e, sectionId, filename) {
+    // セクション間での移動用データ
+    e.dataTransfer.setData('application/x-file-transfer', JSON.stringify({
+        sourceSectionId: sectionId,
+        filename: filename
+    }));
+
+    // デスクトップへのドラッグ用（ダウンロードURL）
+    const downloadUrl = `${window.location.origin}/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+    e.dataTransfer.setData('DownloadURL', `application/octet-stream:${filename}:${downloadUrl}`);
+
+    e.dataTransfer.effectAllowed = 'copyMove';
+}
+
+async function moveFileBetweenSections(sourceSectionId, targetSectionId, filename) {
+    try {
+        const response = await fetch(`/api/sections/${sourceSectionId}/files/${encodeURIComponent(filename)}/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_section_id: targetSectionId })
+        });
+
+        if (!response.ok) throw new Error('Move failed');
+
+        // 両方のセクションをリロード
+        await fetchSectionFiles(sourceSectionId);
+        await fetchSectionFiles(targetSectionId);
+    } catch (error) {
+        console.error('Move error:', error);
+        alert('ファイルの移動に失敗しました: ' + error.message);
+    }
+}
+
+// 拡張されたコンテキストメニュー
+function showFileContextMenu(e, sectionId, filename) {
+    e.preventDefault();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    const downloadUrl = `${window.location.origin}/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="copyFileLink('${downloadUrl}')">🔗 リンクをコピー</div>
+        <div class="context-menu-item" onclick="downloadStorageFile(${sectionId}, '${escapeHtml(filename)}'); hideContextMenu();">📥 ダウンロード</div>
+        <div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">🗑️ 削除</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
+}
+
+function copyFileLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        alert('リンクをコピーしました');
+        hideContextMenu();
+    }).catch(err => {
+        console.error('Copy failed:', err);
+        alert('コピーに失敗しました');
+    });
 }
 
 // セクション設定モーダル関連

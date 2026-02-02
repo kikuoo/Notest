@@ -414,6 +414,52 @@ def download_section_file(section_id, filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sections/<int:source_section_id>/files/<path:filename>/move', methods=['POST'])
+def move_section_file(source_section_id, filename):
+    source_section = Section.query.get_or_404(source_section_id)
+    if source_section.content_type != 'storage':
+        return jsonify({'error': 'Source is not a storage section'}), 400
+        
+    data = request.json
+    target_section_id = data.get('target_section_id')
+    if not target_section_id:
+        return jsonify({'error': 'Target section ID required'}), 400
+        
+    target_section = Section.query.get_or_404(target_section_id)
+    if target_section.content_type != 'storage':
+        return jsonify({'error': 'Target is not a storage section'}), 400
+        
+    try:
+        source_data = json.loads(source_section.content_data) if source_section.content_data else {}
+        target_data = json.loads(target_section.content_data) if target_section.content_data else {}
+        
+        source_path = source_data.get('path')
+        target_path = target_data.get('path')
+        
+        if source_path:
+            source_path = os.path.expanduser(source_path)
+        if target_path:
+            target_path = os.path.expanduser(target_path)
+            
+        if not source_path or not os.path.exists(source_path):
+            return jsonify({'error': f'Source path not found: {source_path}'}), 404
+        if not target_path or not os.path.exists(target_path):
+            return jsonify({'error': f'Target path not found: {target_path}'}), 404
+            
+        source_file = os.path.join(source_path, filename)
+        target_file = os.path.join(target_path, filename)
+        
+        if not os.path.exists(source_file):
+            return jsonify({'error': 'Source file not found'}), 404
+            
+        # ファイルを移動
+        shutil.move(source_file, target_file)
+        
+        return jsonify({'message': 'File moved successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ストレージ場所関連のAPI
 @app.route('/api/storage-locations', methods=['GET'])
 def get_storage_locations():
