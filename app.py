@@ -44,6 +44,7 @@ class Section(db.Model):
     name = db.Column(db.String(255), nullable=True)
     content_type = db.Column(db.String(50), nullable=False)  # 'text', 'file', 'link'
     content_data = db.Column(db.Text, nullable=True)  # JSON形式で保存
+    memo = db.Column(db.Text, nullable=True)  # メモ欄
     order_index = db.Column(db.Integer, default=0)
     width = db.Column(db.Integer, default=300)
     height = db.Column(db.Integer, default=200)
