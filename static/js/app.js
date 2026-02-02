@@ -428,19 +428,20 @@ function makeDraggable(element, section) {
         }
     });
 
-    // リサイズの監視
-    const resizeObserver = new ResizeObserver(async (entries) => {
-        for (const entry of entries) {
-            const rect = entry.target.getBoundingClientRect();
+    // 手動リサイズ検出用のイベントハンドラ
+    element.addEventListener('mouseup', async (e) => {
+        // ヘッダー以外でのマウスアップ（リサイズ終了）を検出
+        if (!isDragging && e.target !== header && !header.contains(e.target)) {
+            const rect = element.getBoundingClientRect();
             const pageRect = document.getElementById('pageContent').getBoundingClientRect();
             const newX = rect.left - pageRect.left;
             let newY = rect.top - pageRect.top;
 
             if (newY < 0) newY = 0;
+
             await updateSectionPosition(section.id, newX, newY, rect.width, rect.height);
         }
     });
-    resizeObserver.observe(element);
 }
 
 async function updateSectionPosition(sectionId, x, y, width, height) {
