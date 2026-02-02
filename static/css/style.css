@@ -592,6 +592,114 @@ body {
     border-color: #999;
 }
 
+/* ファイル表示切り替え用ボタン */
+.view-switcher {
+    display: flex;
+    gap: 2px;
+    background-color: #eee;
+    padding: 2px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.view-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: #666;
+    transition: all 0.2s;
+}
+
+.view-btn:hover {
+    background-color: #e1e1e1;
+}
+
+.view-btn.active {
+    background-color: #fff;
+    color: #0078d4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* カードビュー・サムネイルビュー共通 */
+.file-list.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+}
+
+.file-list.grid .file-item {
+    flex-direction: column;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    background-color: #fff;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.file-list.grid .file-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.file-list.grid .file-icon {
+    font-size: 32px;
+    margin-right: 0;
+    margin-bottom: 8px;
+}
+
+.file-list.grid .file-info {
+    width: 100%;
+}
+
+.file-list.grid .file-meta {
+    display: none;
+    /* グリッド表示では詳細なメタデータは一時隠す */
+}
+
+/* サムネイルビュー特有 */
+.file-list.thumbnails {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.file-thumbnail {
+    width: 100%;
+    height: 100px;
+    object-fit: contain;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+/* プレビュービュー（大きなカードとプレビュー） */
+.file-list.previews {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.file-list.previews .file-item {
+    display: block;
+    padding: 15px;
+}
+
+.file-preview-content {
+    margin-top: 10px;
+    max-height: 300px;
+    overflow: hidden;
+    position: relative;
+    border-radius: 4px;
+    border: 1px solid #eee;
+}
+
+.file-preview-content img {
+    width: 100%;
+    display: block;
+}
+
 /* ディレクトリブラウザスタイル */
 .directory-item {
     padding: 10px;

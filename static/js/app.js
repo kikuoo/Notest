@@ -301,7 +301,13 @@ function renderSectionContent(section) {
             setTimeout(() => fetchSectionFiles(section.id), 0);
             return `
                 <div class="file-browser" id="file-browser-${section.id}">
-                    <div class="file-toolbar">
+                    <div class="storage-section">
+                    <div class="view-switcher">
+                        <button class="view-btn ${(!data.view_mode || data.view_mode === 'list') ? 'active' : ''}" onclick="updateSectionViewMode(${section.id}, 'list')">𝌸 リスト</button>
+                        <button class="view-btn ${data.view_mode === 'grid' ? 'active' : ''}" onclick="updateSectionViewMode(${section.id}, 'grid')">𝌹 カード</button>
+                        <button class="view-btn ${data.view_mode === 'thumbnails' ? 'active' : ''}" onclick="updateSectionViewMode(${section.id}, 'thumbnails')">🖼 サムネイル</button>
+                        <button class="view-btn ${data.view_mode === 'previews' ? 'active' : ''}" onclick="updateSectionViewMode(${section.id}, 'previews')">📝 プレビュー</button>
+                    </div>
                     <div class="file-list" id="file-list-${section.id}">
                         <div style="padding: 10px; color: #666;">読み込み中...</div>
                     </div>
@@ -566,6 +572,10 @@ async function fetchSectionFiles(sectionId) {
     const listEl = document.getElementById(`file-list-${sectionId}`);
     if (!listEl) return;
 
+    const section = sections.find(s => s.id === sectionId);
+    const data = JSON.parse(section.content_data || '{}');
+    const viewMode = data.view_mode || 'list';
+
     try {
         const files = await apiCall(`/api/sections/${sectionId}/files`);
 
@@ -574,25 +584,78 @@ async function fetchSectionFiles(sectionId) {
             return;
         }
 
-        listEl.innerHTML = files.map(file => `
-            <div class="file-item" 
-                 draggable="true"
-                 data-section-id="${sectionId}"
-                 data-filename="${escapeHtml(file.name)}"
-                 title="${escapeHtml(file.name)}"
-                 ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')"
-                 oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(file.name)}')"
-                 ondragstart="handleFileDragStart(event, ${sectionId}, '${escapeHtml(file.name)}')">
-                <div class="file-icon">📄</div>
-                <div class="file-info">
-                    <div class="file-name">${escapeHtml(file.name)}</div>
-                    <div class="file-meta">${formatFileSize(file.size)} - ${new Date(file.updated_at).toLocaleString()}</div>
+        // ビューモードに応じたクラスを付与
+        listEl.className = 'file-list ' + (viewMode === 'list' ? '' : viewMode);
+        if (viewMode === 'list') listEl.classList.remove('grid', 'thumbnails', 'previews');
+        else if (viewMode === 'grid') listEl.classList.add('grid');
+
+        listEl.innerHTML = files.map(file => {
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
+            const downloadUrl = `/api/sections/${sectionId}/files/${encodeURIComponent(file.name)}`;
+
+            let icon = '📄';
+            if (isImage) icon = '🖼';
+            else if (file.name.toLowerCase().endsWith('.pdf')) icon = '📕';
+            else if (file.name.toLowerCase().endsWith('.zip')) icon = '📦';
+
+            let previewHtml = '';
+            if (viewMode === 'thumbnails' && isImage) {
+                previewHtml = `<img src="${downloadUrl}" class="file-thumbnail" loading="lazy">`;
+            } else if (viewMode === 'previews' && isImage) {
+                previewHtml = `<div class="file-preview-content"><img src="${downloadUrl}" loading="lazy"></div>`;
+            }
+
+            return `
+                <div class="file-item" 
+                     draggable="true"
+                     data-section-id="${sectionId}"
+                     data-filename="${escapeHtml(file.name)}"
+                     title="${escapeHtml(file.name)}"
+                     ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')"
+                     oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(file.name)}')"
+                     ondragstart="handleFileDragStart(event, ${sectionId}, '${escapeHtml(file.name)}')">
+                    ${previewHtml}
+                    <div class="file-icon">${isImage && (viewMode === 'thumbnails' || viewMode === 'previews') ? '' : icon}</div>
+                    <div class="file-info">
+                        <div class="file-name">${escapeHtml(file.name)}</div>
+                        <div class="file-meta">${formatFileSize(file.size)} - ${new Date(file.updated_at).toLocaleString()}</div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
     } catch (error) {
         listEl.innerHTML = `<div style="padding: 10px; color: red;">エラー: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+async function updateSectionViewMode(sectionId, mode) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    try {
+        const data = JSON.parse(section.content_data || '{}');
+        data.view_mode = mode;
+
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                content_data: JSON.stringify(data)
+            })
+        });
+
+        section.content_data = JSON.stringify(data);
+        fetchSectionFiles(sectionId);
+
+        // ボタンの表示を更新
+        const switcher = document.querySelector(`#section-${sectionId} .view-switcher`);
+        if (switcher) {
+            switcher.querySelectorAll('.view-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${mode}'`));
+            });
+        }
+    } catch (error) {
+        console.error('Update view mode error:', error);
     }
 }
 
