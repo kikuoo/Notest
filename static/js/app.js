@@ -813,6 +813,28 @@ function setupDirectoryBrowserEvents() {
         if (parent) loadDirectory(parent);
     };
 
+    document.getElementById('btnCreateNewFolder').onclick = async () => {
+        const currentPath = document.getElementById('currentBrowsePath').dataset.path;
+        if (!currentPath) return;
+
+        const name = prompt('新しいフォルダ名を入力してください:');
+        if (!name) return;
+
+        try {
+            await apiCall('/api/system/directories', {
+                method: 'POST',
+                body: JSON.stringify({
+                    path: currentPath,
+                    name: name
+                })
+            });
+            loadDirectory(currentPath); // リロード
+        } catch (error) {
+            console.error('Create directory error:', error);
+            alert('フォルダ作成に失敗しました: ' + error.message);
+        }
+    };
+
     document.getElementById('btnSelectDirectory').onclick = () => {
         const selectedPath = document.getElementById('currentBrowsePath').dataset.path;
         if (selectedPath) {
