@@ -547,15 +547,14 @@ async function fetchSectionFiles(sectionId) {
         }
 
         listEl.innerHTML = files.map(file => `
-            <div class="file-item">
+            <div class="file-item" 
+                 title="${escapeHtml(file.name)}"
+                 ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')"
+                 oncontextmenu="showContextMenu(event, ${sectionId}, '${escapeHtml(file.name)}')">
                 <div class="file-icon">📄</div>
                 <div class="file-info">
-                    <div class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+                    <div class="file-name">${escapeHtml(file.name)}</div>
                     <div class="file-meta">${formatFileSize(file.size)} - ${new Date(file.updated_at).toLocaleString()}</div>
-                </div>
-                <div class="file-actions">
-                    <button class="file-btn" onclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')">開く</button>
-                    <button class="file-btn delete" onclick="deleteStorageFile(${sectionId}, '${escapeHtml(file.name)}')">削除</button>
                 </div>
             </div>
         `).join('');
@@ -611,6 +610,42 @@ async function deleteStorageFile(sectionId, filename) {
         console.error('Delete error:', error);
         alert('削除に失敗しました: ' + error.message);
     }
+}
+
+// コンテキストメニュー
+let contextMenu = null;
+
+function showContextMenu(e, sectionId, filename) {
+    e.preventDefault();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">削除</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+
+    // クリックでメニューを閉じるイベントを追加 (一度だけ)
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
+}
+
+function hideContextMenu() {
+    if (contextMenu) {
+        contextMenu.remove();
+        contextMenu = null;
+    }
+}
+
+async function deleteStorageFileAndHide(sectionId, filename) {
+    hideContextMenu();
+    await deleteStorageFile(sectionId, filename);
 }
 
 // セクション設定モーダル関連

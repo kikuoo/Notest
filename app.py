@@ -477,6 +477,28 @@ def list_directories():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/system/directories', methods=['POST'])
+def create_directory():
+    data = request.json
+    path = data.get('path')
+    name = data.get('name')
+    
+    if not path or not name:
+        return jsonify({'error': 'Path and name are required'}), 400
+        
+    path = os.path.expanduser(path)
+    new_dir_path = os.path.join(path, name)
+    
+    if os.path.exists(new_dir_path):
+        return jsonify({'error': 'Directory already exists'}), 400
+        
+    try:
+        os.makedirs(new_dir_path)
+        return jsonify({'message': 'Directory created', 'path': new_dir_path}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
