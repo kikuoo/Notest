@@ -251,7 +251,7 @@ function createSectionElement(section) {
     sectionEl.style.zIndex = sectionZIndex++;
 
     sectionEl.innerHTML = `
-        <div class="section-header">
+        <div class="section-header" oncontextmenu="showSectionContextMenu(event, ${section.id})">
             <span class="section-title" title="${escapeHtml(section.name || 'セクション')}">${escapeHtml(section.name || 'セクション')}</span>
             <div class="section-controls">
                 <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定">⚙️</button>
@@ -723,6 +723,7 @@ async function moveFileBetweenSections(sourceSectionId, targetSectionId, filenam
 
 // 拡張されたコンテキストメニュー
 let clipboardFile = null; // ファイルコピー用のクリップボード
+let clipboardSection = null; // セクションコピー用のクリップボード
 
 function showFileContextMenu(e, sectionId, filename) {
     e.preventDefault();
