@@ -270,7 +270,7 @@ function renderSectionContent(section) {
                 <div class="content-file" onclick="downloadFile(${section.id})" style="cursor: pointer;">
                     <div class="content-file-name">${escapeHtml(data.filename || 'ファイル')}</div>
                     <div class="content-file-size">${formatFileSize(data.file_size || 0)}</div>
-                    <div style="margin-top: 5px; font-size: 12px; color: #0078d4;">クリックしてダウンロード</div>
+                    <div style="margin-top: 5px; font-size: 12px; color: #0078d4;">クリックして開く</div>
                 </div>
             `;
         case 'storage':
@@ -284,7 +284,7 @@ function renderSectionContent(section) {
                             📁 ${escapeHtml(data.storage_type || 'local')}: ${escapeHtml(data.path || '未設定')}
                         </div>
                         <div class="file-actions">
-                             <button class="file-btn" onclick="openUploadDialog(${section.id})">アップロード</button>
+                             <!-- Upload button removed -->
                         </div>
                     </div>
                     <div class="file-list" id="file-list-${section.id}">
@@ -379,7 +379,7 @@ async function deleteSection(sectionId) {
 }
 
 function downloadFile(sectionId) {
-    window.location.href = `/api/files/${sectionId}`;
+    window.open(`/api/files/${sectionId}`, '_blank');
 }
 
 // ドラッグアンドドロップ
@@ -403,7 +403,10 @@ function makeDraggable(element, section) {
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         const newX = initialX + dx;
-        const newY = initialY + dy;
+        let newY = initialY + dy;
+
+        // 境界チェック: 上部にはみ出さないようにする
+        if (newY < 0) newY = 0;
 
         element.style.left = `${newX}px`;
         element.style.top = `${newY}px`;
@@ -417,7 +420,9 @@ function makeDraggable(element, section) {
             const rect = element.getBoundingClientRect();
             const pageRect = document.getElementById('pageContent').getBoundingClientRect();
             const newX = rect.left - pageRect.left;
-            const newY = rect.top - pageRect.top;
+            let newY = rect.top - pageRect.top;
+
+            if (newY < 0) newY = 0;
 
             await updateSectionPosition(section.id, newX, newY, rect.width, rect.height);
         }
@@ -429,7 +434,9 @@ function makeDraggable(element, section) {
             const rect = entry.target.getBoundingClientRect();
             const pageRect = document.getElementById('pageContent').getBoundingClientRect();
             const newX = rect.left - pageRect.left;
-            const newY = rect.top - pageRect.top;
+            let newY = rect.top - pageRect.top;
+
+            if (newY < 0) newY = 0;
             await updateSectionPosition(section.id, newX, newY, rect.width, rect.height);
         }
     });
@@ -472,7 +479,17 @@ function setupDropZone(element, sectionId) {
 
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-            await uploadFileToSection(files[0], sectionId);
+            const section = sections.find(s => s.id === sectionId);
+            if (section && section.content_type === 'storage') {
+                // Storageセクションの場合は、そのディレクトリにアップロード
+                // 複数ファイルのアップロードに対応
+                for (let i = 0; i < files.length; i++) {
+                    await uploadFileToStorage(sectionId, files[i]);
+                }
+            } else {
+                // 通常のセクションの場合は、既存の動作（セクションをファイルタイプに変換）
+                await uploadFileToSection(files[0], sectionId);
+            }
         }
     });
 }
@@ -579,7 +596,7 @@ async function uploadFileToStorage(sectionId, file) {
 }
 
 function downloadStorageFile(sectionId, filename) {
-    window.location.href = `/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+    window.open(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`, '_blank');
 }
 
 async function deleteStorageFile(sectionId, filename) {

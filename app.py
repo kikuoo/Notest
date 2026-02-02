@@ -304,7 +304,7 @@ def get_file(section_id):
         if not (abs_file_path.startswith(upload_folder) or abs_file_path.startswith(storage_base)):
             return jsonify({'error': 'Access denied'}), 403
         
-        return send_file(file_path, as_attachment=True, download_name=content.get('filename', 'file'))
+        return send_file(file_path, as_attachment=False, download_name=content.get('filename', 'file'))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -410,7 +410,7 @@ def download_section_file(section_id, filename):
         if not path or not os.path.exists(path):
             return jsonify({'error': f'Path not found: {path}'}), 404
             
-        return send_file(os.path.join(path, filename), as_attachment=True)
+        return send_file(os.path.join(path, filename), as_attachment=False)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
