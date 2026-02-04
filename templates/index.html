@@ -154,31 +154,32 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- モーダル: ディレクトリブラウザ -->
-        <div class="modal" id="modalDirectoryBrowser" style="z-index: 2000;">
-            <div class="modal-content" style="max-width: 600px; height: 70vh; display: flex; flex-direction: column;">
-                <span class="close" id="closeDirectoryBrowser">&times;</span>
-                <h2>フォルダ選択</h2>
-                <div
-                    style="background: #f0f0f0; padding: 10px; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 10px;">
-                    <button class="btn-secondary" id="btnDirUp" style="padding: 5px 10px;">⬆️ 上へ</button>
-                    <div id="currentBrowsePath"
-                        style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        /
-                    </div>
-                </div>
-                <div id="directoryList" style="flex: 1; overflow-y: auto; padding: 10px;">
-                    <!-- ディレクトリ一覧がここに表示されます -->
-                </div>
-                <div class="modal-actions" style="margin-top: 0; padding-top: 15px; border-top: 1px solid #eee;">
-                    <button class="btn-secondary" id="btnCreateNewFolder" style="margin-right: auto;">+ 新規フォルダ</button>
-                    <button class="btn-primary" id="btnSelectDirectory">このフォルダを選択</button>
-                    <button class="btn-secondary" id="btnCancelDirectoryBrowser">キャンセル</button>
+    <!-- モーダル: ディレクトリブラウザ -->
+    <div class="modal" id="modalDirectoryBrowser" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 600px; height: 70vh; display: flex; flex-direction: column;">
+            <span class="close" id="closeDirectoryBrowser">&times;</span>
+            <h2>フォルダ選択</h2>
+            <div
+                style="background: #f0f0f0; padding: 10px; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 10px;">
+                <button class="btn-secondary" id="btnDirUp" style="padding: 5px 10px;">⬆️ 上へ</button>
+                <div id="currentBrowsePath"
+                    style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    /
                 </div>
             </div>
+            <div id="directoryList" style="flex: 1; overflow-y: auto; padding: 10px;">
+                <!-- ディレクトリ一覧がここに表示されます -->
+            </div>
+            <div class="modal-actions" style="margin-top: 0; padding-top: 15px; border-top: 1px solid #eee;">
+                <button class="btn-secondary" id="btnCreateNewFolder" style="margin-right: auto;">+ 新規フォルダ</button>
+                <button class="btn-primary" id="btnSelectDirectory">このフォルダを選択</button>
+                <button class="btn-secondary" id="btnCancelDirectoryBrowser">キャンセル</button>
+            </div>
         </div>
-        <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 
 </html>
