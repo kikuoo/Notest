@@ -143,21 +143,24 @@
                         <button class="btn-secondary" id="btnBrowseSectionPath" style="white-space: nowrap;">参照</button>
                     </div>
                 </div>
-                <div style="border-top: 1px solid #eee; margin-top: 20px; padding-top: 15px;">
-                    <button class="btn-secondary" id="btnDeleteSection"
-                        style="color: #d9534f; border-color: #d9534f; width: 100%;">このセクションを削除</button>
-                </div>
-                <input type="hidden" id="editingSectionId">
-                <div class="modal-actions">
-                    <button class="btn-primary" id="btnSaveSectionSettings">保存</button>
-                    <button class="btn-secondary" id="btnCancelSectionSettings">キャンセル</button>
-                </div>
+            </div>
+
+            <input type="hidden" id="editingSectionId">
+
+            <div style="border-top: 1px solid #eee; margin-top: 20px; padding-top: 15px;">
+                <button class="btn-secondary" id="btnDeleteSection"
+                    style="color: #d9534f; border-color: #d9534f; width: 100%;">このセクションを削除</button>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-primary" id="btnSaveSectionSettings">保存</button>
+                <button class="btn-secondary" id="btnCancelSectionSettings">キャンセル</button>
             </div>
         </div>
     </div>
 
     <!-- モーダル: ディレクトリブラウザ -->
-    <div class="modal" id="modalDirectoryBrowser" style="z-index: 2000;">
+    <div class="modal" id="modalDirectoryBrowser" style="z-index: 10001;">
         <div class="modal-content" style="max-width: 600px; height: 70vh; display: flex; flex-direction: column;">
             <span class="close" id="closeDirectoryBrowser">&times;</span>
             <h2>フォルダ選択</h2>

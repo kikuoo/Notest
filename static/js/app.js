@@ -84,14 +84,28 @@ async function createTab(name) {
 
 async function deleteTab(tabId) {
     if (!confirm('このタブを削除しますか？')) return;
-    await apiCall(`/api/tabs/${tabId}`, { method: 'DELETE' });
-    tabs = tabs.filter(t => t.id !== tabId);
-    if (currentTabId === tabId) {
-        currentTabId = null;
-        currentPageId = null;
-        renderPageContent();
+
+    try {
+        await apiCall(`/api/tabs/${tabId}`, { method: 'DELETE' });
+
+        // 削除成功後に状態を更新
+        tabs = tabs.filter(t => t.id !== tabId);
+
+        if (currentTabId === tabId) {
+            currentTabId = null;
+            currentPageId = null;
+            sections = [];
+            localStorage.removeItem('currentTabId');
+            localStorage.removeItem('currentPageId');
+            renderPageContent();
+        }
+
+        renderTabs();
+        console.log(`Tab ${tabId} deleted successfully`);
+    } catch (error) {
+        console.error('Delete tab failed:', error);
+        // apiCall内でalertが表示されるので、ここでは何もしない
     }
-    renderTabs();
 }
 
 function renderTabs() {
@@ -187,15 +201,29 @@ async function createPage(name) {
 
 async function deletePage(pageId) {
     if (!confirm('このページを削除しますか？')) return;
-    await apiCall(`/api/pages/${pageId}`, { method: 'DELETE' });
-    const tab = tabs.find(t => t.id === currentTabId);
-    if (tab) {
-        tab.pages = tab.pages.filter(p => p.id !== pageId);
-        renderPageTabs(tab.pages);
-        if (currentPageId === pageId) {
-            currentPageId = null;
-            renderPageContent();
+
+    try {
+        await apiCall(`/api/pages/${pageId}`, { method: 'DELETE' });
+
+        // 削除成功後に状態を更新
+        const tab = tabs.find(t => t.id === currentTabId);
+        if (tab) {
+            tab.pages = tab.pages.filter(p => p.id !== pageId);
+            renderPageTabs(tab.pages);
+
+            // 削除したページが現在表示中の場合、画面をクリア
+            if (currentPageId === pageId) {
+                currentPageId = null;
+                sections = [];
+                localStorage.removeItem('currentPageId');
+                renderPageContent();
+            }
         }
+
+        console.log(`Page ${pageId} deleted successfully`);
+    } catch (error) {
+        console.error('Delete page failed:', error);
+        // apiCall内でalertが表示されるので、ここでは何もしない
     }
 }
 
@@ -387,9 +415,19 @@ async function changeSectionType(sectionId) {
 
 async function deleteSection(sectionId) {
     if (!confirm('このセクションを削除しますか？')) return;
-    await apiCall(`/api/sections/${sectionId}`, { method: 'DELETE' });
-    sections = sections.filter(s => s.id !== sectionId);
-    renderPageContent();
+
+    try {
+        await apiCall(`/api/sections/${sectionId}`, { method: 'DELETE' });
+
+        // 削除成功後に状態を更新
+        sections = sections.filter(s => s.id !== sectionId);
+        renderPageContent();
+
+        console.log(`Section ${sectionId} deleted successfully`);
+    } catch (error) {
+        console.error('Delete section failed:', error);
+        // apiCall内でalertが表示されるので、ここでは何もしない
+    }
 }
 
 function downloadFile(sectionId) {
@@ -566,7 +604,11 @@ async function fetchSectionFiles(sectionId) {
     if (!listEl) return;
 
     const section = sections.find(s => s.id === sectionId);
-    const data = JSON.parse(section.content_data || '{}');
+    if (!section) return;
+
+    const data = typeof section.content_data === 'string'
+        ? JSON.parse(section.content_data || '{}')
+        : (section.content_data || {});
     const viewMode = data.view_mode || 'list';
 
     try {
@@ -620,6 +662,30 @@ async function fetchSectionFiles(sectionId) {
     } catch (error) {
         listEl.innerHTML = `<div style="padding: 10px; color: red;">エラー: ${escapeHtml(error.message)}</div>`;
     }
+}
+
+// ビューモードのアイコンを取得
+function getViewIcon(mode) {
+    const icons = {
+        'list': '📋',
+        'card': '🗂️',
+        'thumbnail': '🖼️',
+        'preview': '👁️'
+    };
+    return icons[mode] || icons['list'];
+}
+
+// ビューモードを切り替え
+function cycleSectionViewMode(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const modes = ['list', 'card', 'thumbnail', 'preview'];
+    const currentMode = section.content_data?.view_mode || 'list';
+    const currentIndex = modes.indexOf(currentMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    updateSectionViewMode(sectionId, nextMode);
 }
 
 async function updateSectionViewMode(sectionId, mode) {
@@ -1081,6 +1147,11 @@ function setupDirectoryBrowserEvents() {
         }
         hideModal('modalSectionSettings');
         renderPageContent(); // 再描画
+
+        // ストレージタイプの場合はファイルを読み込む
+        if (contentType === 'storage') {
+            await fetchSectionFiles(sectionId);
+        }
     };
 
     // セクション削除
