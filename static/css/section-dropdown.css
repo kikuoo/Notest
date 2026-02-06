@@ -1,0 +1,81 @@
+/* セクション追加ドロップダウンメニュー */
+.add-section-container {
+    position: relative;
+}
+
+.btn-add-section {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #0078d4;
+    color: white;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-add-section:hover {
+    background: #005a9e;
+    transform: scale(1.1);
+}
+
+.section-dropdown {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 10001;
+}
+
+.section-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.dropdown-item:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+    border-radius: 0 0 8px 8px;
+}
+
+.dropdown-item:hover {
+    background: #f5f5f5;
+}
+
+.dropdown-icon {
+    font-size: 20px;
+    width: 24px;
+    text-align: center;
+}
+
+.dropdown-item span:last-child {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}

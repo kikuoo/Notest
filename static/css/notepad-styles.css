@@ -1,0 +1,81 @@
+/* メモ帳専用スタイル */
+.section-header.notepad-header {
+    background: #f9f9f9;
+    padding: 6px 12px;
+    min-height: 28px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+}
+
+.section-header.notepad-header .section-title {
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+}
+
+.section-content.notepad-content-area {
+    height: calc(100% - 28px);
+    padding: 0;
+}
+
+.notepad-content {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    padding: 15px;
+    border: none;
+    resize: none;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+    background: #fffef7;
+    outline: none;
+}
+
+.notepad-content::placeholder {
+    color: #999;
+}
+
+/* 画像貼り付けスタイル */
+.image-paste-container {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.image-paste-placeholder {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.image-paste-placeholder:hover {
+    border-color: #0078d4;
+    background: #f0f8ff;
+}
+
+.pasted-image {
+    max-width: 100%;
+    max-height: 500px;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}

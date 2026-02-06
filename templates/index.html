@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WowNote - OneNote風ノートアプリ</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/preview-panel.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/section-dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notepad-styles.css') }}">
 </head>
 
 <body>
@@ -182,7 +185,27 @@
             </div>
         </div>
     </div>
+
+    <!-- ファイルプレビューパネル -->
+    <div id="filePreviewPanel" class="file-preview-panel">
+        <div class="preview-header">
+            <h3 id="previewFileName">プレビュー</h3>
+            <button class="preview-close-btn" onclick="closeFilePreview()">×</button>
+        </div>
+        <div id="previewContent" class="preview-content">
+            <div class="preview-placeholder">ファイルを選択してください</div>
+        </div>
+    </div>
+
+    <!-- プレビューパネル表示/非表示ボタン -->
+    <button id="togglePreviewBtn" class="toggle-preview-btn" onclick="toggleFilePreview()" title="プレビューパネルを表示/非表示">
+        👁️
+    </button>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/file-preview.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/image-functions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notepad-settings.js') }}"></script>
 </body>
 
 </html>

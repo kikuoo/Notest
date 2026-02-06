@@ -257,15 +257,44 @@ function renderPageContent() {
     });
 
     // セクション追加ボタン
+    // セクション追加ドロップダウンメニュー
+    const addSectionContainer = document.createElement('div');
+    addSectionContainer.className = 'add-section-container';
+    addSectionContainer.style.position = 'absolute';
+    addSectionContainer.style.top = '20px';
+    addSectionContainer.style.right = '20px';
+    addSectionContainer.style.zIndex = '10000';
+
     const addSectionBtn = document.createElement('button');
-    addSectionBtn.className = 'btn-primary';
-    addSectionBtn.style.position = 'absolute';
-    addSectionBtn.style.top = '20px';
-    addSectionBtn.style.right = '20px';
-    addSectionBtn.style.zIndex = '10000';
-    addSectionBtn.textContent = '+ セクション';
-    addSectionBtn.onclick = () => createNewSection();
-    pageContent.appendChild(addSectionBtn);
+    addSectionBtn.className = 'btn-add-section';
+    addSectionBtn.innerHTML = '➕';
+    addSectionBtn.title = 'セクションを追加';
+    addSectionBtn.onclick = (e) => {
+        e.stopPropagation();
+        toggleSectionDropdown();
+    };
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'section-dropdown';
+    dropdown.id = 'sectionDropdown';
+    dropdown.innerHTML = `
+        <div class="dropdown-item" onclick="createNewSection('text')">
+            <span class="dropdown-icon">📝</span>
+            <span>セクション（通常）</span>
+        </div>
+        <div class="dropdown-item" onclick="createNewSection('notepad')">
+            <span class="dropdown-icon">📋</span>
+            <span>メモ帳</span>
+        </div>
+        <div class="dropdown-item" onclick="createNewSection('image')">
+            <span class="dropdown-icon">🖼️</span>
+            <span>画像貼り付け</span>
+        </div>
+    `;
+
+    addSectionContainer.appendChild(addSectionBtn);
+    addSectionContainer.appendChild(dropdown);
+    pageContent.appendChild(addSectionContainer);
 }
 
 function createSectionElement(section) {
@@ -279,17 +308,24 @@ function createSectionElement(section) {
     sectionEl.style.zIndex = sectionZIndex++;
 
     sectionEl.innerHTML = `
-        <div class="section-header" oncontextmenu="showSectionContextMenu(event, ${section.id})">
-            <span class="section-title" title="${escapeHtml(section.name || 'セクション')}">${escapeHtml(section.name || 'セクション')}</span>
-            <div class="section-controls">
-                ${section.content_type === 'storage' ? `<button class="section-btn-icon" id="view-toggle-${section.id}" onclick="cycleSectionViewMode(${section.id})" title="表示切替">${getViewIcon(section.content_data?.view_mode || 'list')}</button>` : ''}
+        ${section.content_type === 'notepad' || section.content_type === 'image' ? `
+            <div class="section-header notepad-header" oncontextmenu="showSectionContextMenu(event, ${section.id})">
+                <span class="section-title" title="${escapeHtml(section.name || 'メモ帳')}">${escapeHtml(section.name || 'メモ帳')}</span>
                 <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定">⚙️</button>
             </div>
-        </div>
-        <div class="section-memo">
-            <textarea placeholder="メモ..." onchange="updateSectionContent(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
-        </div>
-        <div class="section-content" data-section-id="${section.id}">
+        ` : `
+            <div class="section-header" oncontextmenu="showSectionContextMenu(event, ${section.id})">
+                <span class="section-title" title="${escapeHtml(section.name || 'セクション')}">${escapeHtml(section.name || 'セクション')}</span>
+                <div class="section-controls">
+                    ${section.content_type === 'storage' ? `<button class="section-btn-icon" id="view-toggle-${section.id}" onclick="cycleSectionViewMode(${section.id})" title="表示切替">${getViewIcon(section.content_data?.view_mode || 'list')}</button>` : ''}
+                    <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定">⚙️</button>
+                </div>
+            </div>
+            <div class="section-memo">
+                <textarea placeholder="メモ..." onchange="updateSectionContent(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
+            </div>
+        `}
+        <div class="section-content ${section.content_type === 'notepad' || section.content_type === 'image' ? 'full-height' : ''}" data-section-id="${section.id}">
             ${renderSectionContent(section)}
         </div>
     `;
@@ -334,22 +370,96 @@ function renderSectionContent(section) {
                     </div>
                 </div>
             `;
+            const style = `
+                background-color: ${data.bgColor || '#fffef7'};
+                font-family: ${data.fontFamily || "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"};
+                font-size: ${data.fontSize || '14px'};
+                color: ${data.fontColor || '#333333'};
+            `;
+            return `
+                <textarea class="notepad-content" 
+                    style="${style}"
+                    placeholder="ここにメモを入力してください..."
+                    onchange="updateSectionContent(${section.id}, 'notepad', this.value)">${escapeHtml(data.text || '')}</textarea>
+            `;
+        case 'image':
+            const imageUrl = data.image_url || '';
+            return `
+                <div class="image-paste-container">
+                    ${imageUrl ? `
+                        <img src="${escapeHtml(imageUrl)}" class="pasted-image" alt="貼り付けた画像">
+                        <button class="btn-secondary" onclick="clearSectionImage(${section.id})" style="margin-top: 10px;">画像を削除</button>
+                    ` : `
+                        <div class="image-paste-placeholder" onclick="triggerImagePaste(${section.id})">
+                            <div style="font-size: 48px; margin-bottom: 10px;">🖼️</div>
+                            <div>クリックして画像を貼り付け</div>
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">または画像をドラッグ&ドロップ</div>
+                        </div>
+                    `}
+                </div>
+            `;
         default:
             return '<p>不明なコンテンツタイプ</p>';
     }
 }
 
-async function createNewSection() {
+// ドロップダウンメニューの表示/非表示を切り替え
+function toggleSectionDropdown() {
+    const dropdown = document.getElementById('sectionDropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+    }
+}
+
+// ドロップダウンメニューを閉じる（外側クリック時）
+document.addEventListener('click', function (e) {
+    const dropdown = document.getElementById('sectionDropdown');
+    const container = document.querySelector('.add-section-container');
+    if (dropdown && !container?.contains(e.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+
+async function createNewSection(sectionType = 'text') {
     if (!currentPageId) return;
 
-    const name = prompt('セクション名を入力してください（空白可）:');
+    // ドロップダウンを閉じる
+    const dropdown = document.getElementById('sectionDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('show');
+    }
+
+    let contentType = 'text';
+    let defaultName = '新しいセクション';
+
+    // セクションタイプに応じた設定
+    if (sectionType === 'notepad') {
+        contentType = 'notepad';
+        defaultName = 'メモ帳';
+    } else if (sectionType === 'image') {
+        contentType = 'image';
+        defaultName = '画像';
+    }
+
+
+    // セクションタイプに応じた初期データを設定
+    let contentData = { text: '' };
+    if (sectionType === 'notepad') {
+        contentData = { text: '' };
+    } else if (sectionType === 'image') {
+        contentData = { image_url: '' };
+    }
+
+    const name = prompt('セクション名を入力してください（空白可）:', defaultName);
+    if (name === null) return; // キャンセルされた場合
+
     const section = await apiCall('/api/sections', {
         method: 'POST',
         body: JSON.stringify({
             page_id: currentPageId,
-            name: name || null,
-            content_type: 'text',
-            content_data: { text: '' },
+            name: name || defaultName,
+            content_type: contentType,
+            content_data: contentData,
             position_x: 50,
             position_y: 50,
             width: 300,
@@ -437,6 +547,10 @@ function downloadFile(sectionId) {
 // ドラッグアンドドロップ
 function makeDraggable(element, section) {
     const header = element.querySelector('.section-header');
+
+    // ヘッダーがない場合（メモ帳や画像セクション）は何もしない
+    if (!header) return;
+
     let isDragging = false;
     let startX, startY, initialX, initialY;
 
@@ -646,6 +760,7 @@ async function fetchSectionFiles(sectionId) {
                      data-section-id="${sectionId}"
                      data-filename="${escapeHtml(file.name)}"
                      title="${escapeHtml(file.name)}"
+                     onclick="showFilePreview(${sectionId}, '${escapeHtml(file.name)}')"
                      ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')"
                      oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(file.name)}')"
                      ondragstart="handleFileDragStart(event, ${sectionId}, '${escapeHtml(file.name)}')">
@@ -668,9 +783,9 @@ async function fetchSectionFiles(sectionId) {
 function getViewIcon(mode) {
     const icons = {
         'list': '📋',
-        'card': '🗂️',
-        'thumbnail': '🖼️',
-        'preview': '👁️'
+        'grid': '🗂️',
+        'thumbnails': '🖼️',
+        'previews': '👁️'
     };
     return icons[mode] || icons['list'];
 }
@@ -697,9 +812,9 @@ async function updateSectionViewMode(sectionId, mode) {
         data.view_mode = mode;
 
         await apiCall(`/api/sections/${sectionId}`, {
-            method: 'PATCH',
+            method: 'PUT',
             body: JSON.stringify({
-                content_data: JSON.stringify(data)
+                content_data: data
             })
         });
 
@@ -1009,6 +1124,15 @@ function showEmptyContextMenu(e, sectionId) {
 function configureSection(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
+
+    // メモ帳または画像セクションの場合は専用設定を開く
+    if (section.content_type === 'notepad' || section.content_type === 'image') {
+        if (typeof openNotepadSettings === 'function') {
+            openNotepadSettings(sectionId);
+        }
+        return;
+    }
+
 
     // 現在の設定を取得
     const currentData = section.content_data || {};
