@@ -210,10 +210,12 @@ body {
     background-color: #ffffff;
     min-width: 200px;
     min-height: 150px;
-    cursor: move;
+    cursor: default;
+    /* Changed from move */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     resize: both;
-    overflow: auto;
+    overflow: hidden;
+    /* Ensure content doesn't spill, handle visible */
 }
 
 .section-header {

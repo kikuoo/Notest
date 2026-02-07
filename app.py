@@ -287,8 +287,8 @@ def upload_file():
 @app.route('/api/files/<int:section_id>')
 def get_file(section_id):
     section = Section.query.get_or_404(section_id)
-    if section.content_type != 'file' or not section.content_data:
-        return jsonify({'error': 'Not a file section'}), 400
+    if section.content_type not in ['file', 'image'] or not section.content_data:
+        return jsonify({'error': 'Not a file or image section'}), 400
     
     try:
         content = json.loads(section.content_data)

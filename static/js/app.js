@@ -309,23 +309,25 @@ function createSectionElement(section) {
 
     sectionEl.innerHTML = `
         ${section.content_type === 'notepad' || section.content_type === 'image' ? `
-            <div class="section-header notepad-header" oncontextmenu="showSectionContextMenu(event, ${section.id})">
+            <div class="section-header notepad-header" 
+                 oncontextmenu="showSectionContextMenu(event, ${section.id})" 
+                 style="background-color: ${section.content_data?.bgColor || '#fff9c4'}; border-bottom-color: rgba(0,0,0,0.1);">
                 <span class="section-title" title="${escapeHtml(section.name || 'メモ帳')}">${escapeHtml(section.name || 'メモ帳')}</span>
-                <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定">⚙️</button>
+                <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">≡</button>
             </div>
         ` : `
             <div class="section-header" oncontextmenu="showSectionContextMenu(event, ${section.id})">
                 <span class="section-title" title="${escapeHtml(section.name || 'セクション')}">${escapeHtml(section.name || 'セクション')}</span>
                 <div class="section-controls">
                     ${section.content_type === 'storage' ? `<button class="section-btn-icon" id="view-toggle-${section.id}" onclick="cycleSectionViewMode(${section.id})" title="表示切替">${getViewIcon(section.content_data?.view_mode || 'list')}</button>` : ''}
-                    <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定">⚙️</button>
+                    <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">≡</button>
                 </div>
             </div>
             <div class="section-memo">
                 <textarea placeholder="メモ..." onchange="updateSectionContent(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
             </div>
         `}
-        <div class="section-content ${section.content_type === 'notepad' || section.content_type === 'image' ? 'full-height' : ''}" data-section-id="${section.id}">
+        <div class="section-content ${section.content_type === 'notepad' || section.content_type === 'image' ? 'full-height notepad-content-area' : ''}" data-section-id="${section.id}">
             ${renderSectionContent(section)}
         </div>
     `;
@@ -369,19 +371,20 @@ function renderSectionContent(section) {
                         <div style="padding: 10px; color: #666;">読み込み中...</div>
                     </div>
                 </div>
-            `;
+                `;
+        case 'notepad':
             const style = `
-                background-color: ${data.bgColor || '#fffef7'};
-                font-family: ${data.fontFamily || "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"};
-                font-size: ${data.fontSize || '14px'};
-                color: ${data.fontColor || '#333333'};
+            background-color: ${data.bgColor || '#fffef7'};
+            font-family: ${data.fontFamily || "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"};
+            font-size: ${data.fontSize || '14px'};
+            color: ${data.fontColor || '#333333'};
             `;
             return `
-                <textarea class="notepad-content" 
-                    style="${style}"
-                    placeholder="ここにメモを入力してください..."
-                    onchange="updateSectionContent(${section.id}, 'notepad', this.value)">${escapeHtml(data.text || '')}</textarea>
-            `;
+                <textarea class="notepad-content"
+            style = "${style}"
+            placeholder = "ここにメモを入力してください..."
+            onchange = "updateSectionContent(${section.id}, 'notepad', this.value)" > ${escapeHtml(data.text || '')}</textarea>
+                `;
         case 'image':
             const imageUrl = data.image_url || '';
             return `
@@ -397,7 +400,7 @@ function renderSectionContent(section) {
                         </div>
                     `}
                 </div>
-            `;
+                `;
         default:
             return '<p>不明なコンテンツタイプ</p>';
     }
@@ -650,15 +653,24 @@ function setupDropZone(element, sectionId) {
         // OSからのファイルドロップ
         if (files.length > 0) {
             const section = sections.find(s => s.id === sectionId);
-            if (section && section.content_type === 'storage') {
-                // Storageセクションの場合は、そのディレクトリにアップロード
-                // 複数ファイルのアップロードに対応
-                for (let i = 0; i < files.length; i++) {
-                    await uploadFileToStorage(sectionId, files[i]);
+            if (section) {
+                if (section.content_type === 'storage') {
+                    // Storageセクションの場合は、そのディレクトリにアップロード
+                    for (let i = 0; i < files.length; i++) {
+                        await uploadFileToStorage(sectionId, files[i]);
+                    }
+                } else if (section.content_type === 'image') {
+                    // 画像セクションの場合は画像としてアップロード
+                    // 最初のファイルのみ処理（画像は1つだけ）
+                    if (files[0].type.startsWith('image/')) {
+                        await uploadImageToSection(files[0], sectionId);
+                    } else {
+                        alert('画像ファイルのみアップロード可能です');
+                    }
+                } else {
+                    // 通常のセクションの場合は、既存の動作（セクションをファイルタイプに変換）
+                    await uploadFileToSection(files[0], sectionId);
                 }
-            } else {
-                // 通常のセクションの場合は、既存の動作（セクションをファイルタイプに変換）
-                await uploadFileToSection(files[0], sectionId);
             }
         }
         // 他のセクションからのファイルドロップ
@@ -671,6 +683,143 @@ function setupDropZone(element, sectionId) {
             }
         }
     });
+}
+
+// 画像貼り付けトリガー
+function triggerImagePaste(sectionId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+        if (e.target.files.length > 0) {
+            await uploadImageToSection(e.target.files[0], sectionId);
+        }
+    };
+    input.click();
+}
+
+async function uploadImageToSection(file, sectionId) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+
+        const fileData = await response.json();
+        const imageUrl = `/api/files/${sectionId}`; // This might be wrong if /api/files/ID expects file content type
+
+        // Update section to be an image section with the file URL
+        // Actually, /api/upload returns file_path.
+        // We need to serve this file.
+        // The existing renderSectionContent for image uses `data.image_url`.
+        // If we use `uploadFileToSection` logic, it sets generic file data.
+        // We want to set content_data = { image_url: ... }
+
+        // Wait, app.py /api/upload returns:
+        // 'filename': ..., 'file_path': ...
+
+        // And /api/files/<section_id> serves the file if section is 'file' type.
+        // But for 'image' type, we need a way to serve the image.
+        // If we set content_type='file', `renderSectionContent` renders a file icon, not an image.
+        // If we set content_type='image', we need an URL that serves the image.
+
+        // Let's modify renderSectionContent to use the same /api/files/ID endpoint if we can,
+        // OR we need to make sure `api/files/<section_id>` works for image sections too.
+
+        // Let's check app.py get_file(section_id):
+        // It checks: if section.content_type != 'file' ... return error.
+        // So we can't use /api/files/ID for 'image' type sections directly unless we modify app.py.
+
+        // user request: "画像貼り付け" (Image Paste)
+
+        // Strategy:
+        // 1. Upload file.
+        // 2. Set section content_type = 'image'.
+        // 3. Set content_data = { image_url: '...' }.
+        //    Where does the image URL come from?
+        //    We can serve it via a new endpoint or reusing /api/files/ID if we tweak app.py.
+
+        // Let's look at `renderSectionContent` case 'image':
+        // const imageUrl = data.image_url || '';
+        // <img src="${escapeHtml(imageUrl)}" ...>
+
+        // If I upload an image, where is it hosted?
+        // The current `upload_file` saves to `UPLOAD_FOLDER`.
+
+        // If I change app.py to allow `get_file` to work for `content_type == 'image'` too, that would be easiest.
+
+        // Let's assume I will modify app.py too.
+
+        // For now, let's implement the JS side assuming /api/files/ID will work or I'll use a direct path if it's static?
+        // No, `upload_file` saves to a protected folder.
+
+        // Alternatively, I can use the existing `uploadFileToSection` approach but change the type to `image`?
+        // No, `uploadFileToSection` sets type to `file`.
+
+        // I will implement `uploadImageToSection` to:
+        // 1. Upload file.
+        // 2. Update section to type 'image', and store `file_path` in content_data (like 'file' type).
+        // 3. But wait, `image` type expects `image_url`.
+        //    If I store `file_path`, I need an endpoint to serve it.
+
+        // Let's update `app.py` to allow `get_file` for `image` type as well.
+        // And `uploadImageToSection` will save `file_path` in `content_data`, similar to `file` type,
+        // AND maybe `image_url` pointing to `/api/files/${sectionId}`.
+
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                content_type: 'image',
+                content_data: {
+                    file_path: fileData.file_path,
+                    filename: fileData.filename,
+                    image_url: `/api/files/${sectionId}` // Point to the file serving endpoint
+                }
+            })
+        });
+
+        const section = sections.find(s => s.id === sectionId);
+        if (section) {
+            section.content_type = 'image';
+            section.content_data = {
+                file_path: fileData.file_path,
+                filename: fileData.filename,
+                image_url: `/api/files/${sectionId}`
+            };
+        }
+        renderPageContent();
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('画像のアップロードに失敗しました');
+    }
+}
+
+async function clearSectionImage(sectionId) {
+    if (!confirm('画像を削除しますか？')) return;
+
+    try {
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                content_type: 'image',
+                content_data: { image_url: '' }
+            })
+        });
+
+        const section = sections.find(s => s.id === sectionId);
+        if (section) {
+            section.content_data = { image_url: '' };
+        }
+        renderPageContent();
+    } catch (error) {
+        console.error('Clear image error:', error);
+        alert('画像の削除に失敗しました: ' + error.message);
+    }
 }
 
 async function uploadFileToSection(file, sectionId) {
@@ -1387,7 +1536,10 @@ async function createStorageLocation(name, type, path) {
 
 // モーダル管理
 function showModal(modalId) {
-    document.getElementById(modalId).classList.add('active');
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+    }
 }
 
 function hideModal(modalId) {
@@ -1412,7 +1564,10 @@ function formatFileSize(bytes) {
 // イベントリスナー
 document.addEventListener('DOMContentLoaded', () => {
     // タブ作成
-    document.getElementById('btnNewTab').onclick = () => showModal('modalNewTab');
+    const btnNewTab = document.getElementById('btnNewTab');
+    if (btnNewTab) {
+        btnNewTab.onclick = () => showModal('modalNewTab');
+    }
     document.getElementById('btnCreateTab').onclick = () => {
         const name = document.getElementById('newTabName').value.trim();
         if (name) {
