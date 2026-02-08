@@ -21,10 +21,60 @@ body {
     width: 250px;
     background-color: #2d2d30;
     color: white;
+    color: white;
     display: flex;
     flex-direction: column;
     border-right: 1px solid #3e3e42;
     position: relative;
+    transition: width 0.3s ease;
+    /* Smooth transition */
+    overflow: hidden;
+    /* Prevent content overflow during collapse */
+    white-space: nowrap;
+    /* Prevent text wrap */
+}
+
+/* 閉じられたサイドバー */
+.sidebar.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0;
+    border: none;
+}
+
+/* サイドバー開閉ボタン */
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: transparent;
+    border: none;
+    color: #666;
+    font-size: 24px;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+/* ダークモード対応 */
+body.dark-theme .sidebar-toggle-btn {
+    color: #aaa;
+}
+
+body.dark-theme .sidebar-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
 }
 
 .sidebar-header {

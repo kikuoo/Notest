@@ -1604,6 +1604,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // ここでは置換で見通しを良くするため関数として定義し、後で呼び出します。
 });
 
+// サイドバー機能関連
+function initSidebarToggle() {
+    const sidebar = document.querySelector('.sidebar');
+    const toggleBtn = document.getElementById('btnSidebarToggle');
+
+    // 初期状態の復元
+    const savedCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+    if (savedCollapsed) {
+        sidebar.classList.add('collapsed');
+    }
+
+    // トグルボタン
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        });
+    }
+}
+
 function setupDirectoryBrowserEvents() {
     // セクション設定モーダル
     document.getElementById('closeSectionSettings').onclick = () => hideModal('modalSectionSettings');
