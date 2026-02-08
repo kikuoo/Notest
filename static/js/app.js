@@ -268,7 +268,7 @@ function renderPageContent() {
     const addSectionBtn = document.createElement('button');
     addSectionBtn.className = 'btn-add-section';
     addSectionBtn.innerHTML = '➕';
-    addSectionBtn.title = 'セクションを追加';
+    addSectionBtn.title = 'ファイルビューを追加';
     addSectionBtn.onclick = (e) => {
         e.stopPropagation();
         toggleSectionDropdown();
@@ -280,7 +280,7 @@ function renderPageContent() {
     dropdown.innerHTML = `
         <div class="dropdown-item" onclick="createNewSection('text')">
             <span class="dropdown-icon">📝</span>
-            <span>セクション（通常）</span>
+            <span>ファイルビュー（通常）</span>
         </div>
         <div class="dropdown-item" onclick="createNewSection('notepad')">
             <span class="dropdown-icon">📋</span>
@@ -588,7 +588,7 @@ function showPageContextMenu(e) {
     contextMenu.style.top = `${e.clientY}px`;
 
     contextMenu.innerHTML = `
-        <div class="context-menu-item" onclick="createNewSection('text', ${x}, ${y})">📝 テキスト作成</div>
+        <div class="context-menu-item" onclick="createNewSection('text', ${x}, ${y})">📝 ファイルビュー作成</div>
         <div class="context-menu-item" onclick="createNewSection('notepad', ${x}, ${y})">📒 メモ帳作成</div>
         <div class="context-menu-item" onclick="createNewSection('image', ${x}, ${y})">🖼️ 画像貼り付け</div>
         <div class="context-menu-item" onclick="createNewSection('storage', ${x}, ${y})">📁 ストレージ作成</div>
@@ -770,7 +770,7 @@ async function changeSectionType(sectionId) {
 }
 
 async function deleteSection(sectionId) {
-    if (!confirm('このセクションを削除しますか？')) return;
+    if (!confirm('このファイルビューを削除しますか？')) return;
 
     try {
         await apiCall(`/api/sections/${sectionId}`, { method: 'DELETE' });
@@ -1177,10 +1177,10 @@ async function fetchSectionFiles(sectionId) {
 // ビューモードのアイコンを取得
 function getViewIcon(mode) {
     const icons = {
-        'list': '📋',
-        'grid': '🗂️',
-        'thumbnails': '🖼️',
-        'previews': '👁️'
+        'list': '≡',
+        'grid': '⊞',
+        'thumbnails': '□',
+        'previews': '👁'
     };
     return icons[mode] || icons['list'];
 }
