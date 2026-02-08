@@ -67,7 +67,6 @@ body {
     width: 250px;
     background-color: #2d2d30;
     color: white;
-    color: white;
     display: flex;
     flex-direction: column;
     border-right: 1px solid #3e3e42;
@@ -78,6 +77,8 @@ body {
     /* Prevent content overflow during collapse */
     white-space: nowrap;
     /* Prevent text wrap */
+    flex-shrink: 0;
+    /* Prevent sidebar from shrinking */
 }
 
 /* 閉じられたサイドバー */

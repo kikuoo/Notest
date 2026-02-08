@@ -1907,6 +1907,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初期化
     setupDirectoryBrowserEvents();
+    initSidebarToggle();
     loadTabs();
 });
 
