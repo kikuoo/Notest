@@ -23,14 +23,13 @@
                 <!-- タブが動的に追加されます -->
             </div>
             <div class="sidebar-footer">
-                <button class="btn-settings" id="btnSettings">⚙️ 設定</button>
+                <button class="btn-settings" id="btnToggleTheme">🌓 テーマ切替</button>
+                <button class="btn-settings" id="btnSettings" style="display: none;">設定</button>
             </div>
-            <div class="sidebar-resizer" id="sidebarResizer"></div>
         </div>
 
         <!-- メインコンテンツエリア -->
         <div class="main-content">
-            <button id="btnSidebarToggle" class="sidebar-toggle-btn" title="サイドバーの表示/非表示">≡</button>
             <!-- タブバー -->
             <div class="tab-bar" id="tabBar">
                 <!-- ページタブが動的に追加されます -->
@@ -76,13 +75,6 @@
         <div class="modal-content">
             <span class="close" id="closeSettings">&times;</span>
             <h2>設定</h2>
-
-            <div class="form-group">
-                <label>外観</label>
-                <button class="btn-secondary" id="btnToggleTheme" style="width: 100%; text-align: left;">🌓 テーマ切替
-                    (ライト/ダーク)</button>
-            </div>
-
             <!-- ストレージ設定は削除されました -->
         </div>
     </div>

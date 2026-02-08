@@ -709,78 +709,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // サイドバー機能の初期化
-    initSidebar();
-
     // ページ背景の右クリックイベント
     const pageContent = document.getElementById('pageContent');
     if (pageContent) {
         pageContent.addEventListener('contextmenu', showPageContextMenu);
     }
 });
-
-// サイドバー機能関連
-function initSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    const resizer = document.getElementById('sidebarResizer');
-    const toggleBtn = document.getElementById('btnSidebarToggle');
-
-    // 初期幅と状態の復元
-    const savedWidth = parseFloat(localStorage.getItem('sidebarWidth'));
-    const savedCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-
-    if (!isNaN(savedWidth)) {
-        // 幅のバリデーション（150px〜600pxの範囲に収める）
-        const validWidth = Math.max(150, Math.min(savedWidth, 600));
-        document.documentElement.style.setProperty('--sidebar-width', `${validWidth}px`);
-    }
-
-    if (savedCollapsed) {
-        sidebar.classList.add('collapsed');
-    }
-
-    // トグルボタン
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-            const isCollapsed = sidebar.classList.contains('collapsed');
-            localStorage.setItem('sidebarCollapsed', isCollapsed);
-        });
-    }
-
-    // リサイズ機能
-    if (resizer) {
-        let isResizing = false;
-
-        resizer.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-            document.body.style.cursor = 'col-resize';
-            e.preventDefault(); // テキスト選択防止
-        });
-
-        function handleMouseMove(e) {
-            if (!isResizing) return;
-            // 最小幅と最大幅の制限
-            const newWidth = Math.max(150, Math.min(e.clientX, 600));
-            document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
-        }
-
-        function handleMouseUp() {
-            if (isResizing) {
-                isResizing = false;
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-                document.body.style.cursor = '';
-
-                // 幅を保存
-                const currentWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim();
-                localStorage.setItem('sidebarWidth', parseFloat(currentWidth));
-            }
-        }
-    }
-}
 
 async function updateSectionContent(sectionId, contentType, value) {
     if (contentType === 'text') {
