@@ -23,12 +23,14 @@
                 <!-- タブが動的に追加されます -->
             </div>
             <div class="sidebar-footer">
-                <button class="btn-settings" id="btnSettings">設定</button>
+                <button class="btn-settings" id="btnSettings">⚙️ 設定</button>
             </div>
+            <div class="sidebar-resizer" id="sidebarResizer"></div>
         </div>
 
         <!-- メインコンテンツエリア -->
         <div class="main-content">
+            <button id="btnSidebarToggle" class="sidebar-toggle-btn" title="サイドバーの表示/非表示">≡</button>
             <!-- タブバー -->
             <div class="tab-bar" id="tabBar">
                 <!-- ページタブが動的に追加されます -->
@@ -73,51 +75,28 @@
     <div class="modal" id="modalSettings">
         <div class="modal-content">
             <span class="close" id="closeSettings">&times;</span>
-            <h2>ストレージ設定</h2>
-            <div class="storage-locations" id="storageLocations">
-                <!-- ストレージ場所が動的に追加されます -->
+            <h2>設定</h2>
+
+            <div class="form-group">
+                <label>外観</label>
+                <button class="btn-secondary" id="btnToggleTheme" style="width: 100%; text-align: left;">🌓 テーマ切替
+                    (ライト/ダーク)</button>
             </div>
-            <button class="btn-primary" id="btnAddStorage">+ ストレージ場所を追加</button>
+
+            <!-- ストレージ設定は削除されました -->
         </div>
     </div>
 
-    <!-- モーダル: ストレージ追加 -->
-    <div class="modal" id="modalAddStorage">
-        <div class="modal-content">
-            <span class="close" id="closeAddStorage">&times;</span>
-            <h2>ストレージ場所を追加</h2>
-            <div class="form-group">
-                <label>名前:</label>
-                <input type="text" id="storageName" placeholder="例: ローカルフォルダ">
-            </div>
-            <div class="form-group">
-                <label>タイプ:</label>
-                <select id="storageType">
-                    <option value="local">ローカルフォルダ</option>
-                    <option value="onedrive">OneDrive</option>
-                    <option value="googledrive">Google Drive</option>
-                    <option value="icloud">iCloud</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>パス:</label>
-                <input type="text" id="storagePath" placeholder="フォルダパスを入力">
-                <button class="btn-secondary" id="btnBrowsePath">参照</button>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-primary" id="btnSaveStorage">保存</button>
-                <button class="btn-secondary" id="btnCancelStorage">キャンセル</button>
-            </div>
-        </div>
-    </div>
+    <!-- モーダル: ストレージ追加 (削除) -->
+
     <!-- モーダル: セクション設定 -->
     <div class="modal" id="modalSectionSettings">
         <div class="modal-content">
             <span class="close" id="closeSectionSettings">&times;</span>
-            <h2>セクション設定</h2>
+            <h2>ファイルビュー設定</h2>
             <div class="form-group">
-                <label>セクション名:</label>
-                <input type="text" id="sectionNameInput" placeholder="セクション名">
+                <label>ファイルビュー名:</label>
+                <input type="text" id="sectionNameInput" placeholder="ファイルビュー名">
             </div>
             <div class="form-group">
                 <label>コンテンツタイプ:</label>

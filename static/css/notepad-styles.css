@@ -8,6 +8,15 @@
     justify-content: space-between;
     align-items: center;
     cursor: move;
+    color: #333;
+}
+
+.section-header.notepad-header .section-btn-icon {
+    color: #555 !important;
+}
+
+.section-header.notepad-header .section-btn-icon:hover {
+    color: #000 !important;
 }
 
 .section-header.notepad-header .section-title {
@@ -17,8 +26,10 @@
 }
 
 .section-content.notepad-content-area {
-    height: calc(100% - 28px);
+    height: auto !important;
     padding: 0;
+    flex: 1;
+    /* Ensure it grows */
 }
 
 .notepad-content {

@@ -297,6 +297,7 @@ function renderPageContent() {
     pageContent.appendChild(addSectionContainer);
 }
 
+// セクションのHTML作成
 function createSectionElement(section) {
     const sectionEl = document.createElement('div');
     sectionEl.className = 'section';
@@ -307,26 +308,37 @@ function createSectionElement(section) {
     sectionEl.style.height = `${section.height}px`;
     sectionEl.style.zIndex = sectionZIndex++;
 
-    sectionEl.innerHTML = `
-        ${section.content_type === 'notepad' || section.content_type === 'image' ? `
+    // Content-specific header rendering logic
+    let headerHtml = '';
+
+    if (section.content_type === 'notepad') {
+        headerHtml = `
             <div class="section-header notepad-header" 
-                 oncontextmenu="showSectionContextMenu(event, ${section.id})" 
-                 style="background-color: ${section.content_data?.bgColor || '#fff9c4'}; border-bottom-color: rgba(0,0,0,0.1);">
+                 oncontextmenu="showSectionHeaderContextMenu(event, ${section.id})" 
+                 style="background-color: ${section.content_data?.bgColor || '#f9f9f9'};">
                 <span class="section-title" title="${escapeHtml(section.name || 'メモ帳')}">${escapeHtml(section.name || 'メモ帳')}</span>
                 <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">≡</button>
             </div>
-        ` : `
-            <div class="section-header" oncontextmenu="showSectionContextMenu(event, ${section.id})">
-                <span class="section-title" title="${escapeHtml(section.name || 'セクション')}">${escapeHtml(section.name || 'セクション')}</span>
+        `;
+    } else {
+        // Standard header for text, image, storage
+        headerHtml = `
+            <div class="section-header" oncontextmenu="showSectionHeaderContextMenu(event, ${section.id})">
+                <span class="section-title" title="${escapeHtml(section.name || 'ファイルビュー')}">${escapeHtml(section.name || 'ファイルビュー')}</span>
                 <div class="section-controls">
                     ${section.content_type === 'storage' ? `<button class="section-btn-icon" id="view-toggle-${section.id}" onclick="cycleSectionViewMode(${section.id})" title="表示切替">${getViewIcon(section.content_data?.view_mode || 'list')}</button>` : ''}
                     <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">≡</button>
                 </div>
             </div>
+        `;
+    }
+
+    sectionEl.innerHTML = headerHtml + `
+        ${section.content_type !== 'notepad' && section.content_type !== 'image' && section.content_type !== 'storage' ? `
             <div class="section-memo">
                 <textarea placeholder="メモ..." onchange="updateSectionContent(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
             </div>
-        `}
+        ` : ''}
         <div class="section-content ${section.content_type === 'notepad' || section.content_type === 'image' ? 'full-height notepad-content-area' : ''}" data-section-id="${section.id}">
             ${renderSectionContent(section)}
         </div>
@@ -423,7 +435,7 @@ document.addEventListener('click', function (e) {
     }
 });
 
-async function createNewSection(sectionType = 'text') {
+async function createNewSection(sectionType = 'text', x = null, y = null) {
     if (!currentPageId) return;
 
     // ドロップダウンを閉じる
@@ -432,28 +444,99 @@ async function createNewSection(sectionType = 'text') {
         dropdown.classList.remove('show');
     }
 
+    // 座標の決定（指定がなければデフォルト位置）
+    let positionX = x !== null ? x : 50 + (sections.length * 20);
+    let positionY = y !== null ? y : 50 + (sections.length * 20);
+
+    // 画像の場合は直接ファイル選択
+    if (sectionType === 'image') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const defaultName = file.name;
+                const name = prompt('ファイルビュー名を入力してください（空白可）:', defaultName);
+                if (name === null) return; // キャンセル
+
+                try {
+                    // アップロード
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!response.ok) throw new Error('Upload failed');
+                    const fileData = await response.json();
+
+                    // セクション作成
+                    const section = await apiCall('/api/sections', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            page_id: currentPageId,
+                            name: name || defaultName,
+                            content_type: 'image',
+                            content_data: {
+                                file_path: fileData.file_path,
+                                filename: fileData.filename,
+                                image_url: ''
+                            },
+                            position_x: positionX,
+                            position_y: positionY,
+                            width: 300,
+                            height: 200
+                        })
+                    });
+
+                    // ID確定後、image_urlを更新
+                    await apiCall(`/api/sections/${section.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            content_data: {
+                                file_path: fileData.file_path,
+                                filename: fileData.filename,
+                                image_url: `/api/files/${section.id}`
+                            }
+                        })
+                    });
+
+                    section.content_data.image_url = `/api/files/${section.id}`;
+                    sections.push(section);
+                    renderPageContent();
+
+                } catch (error) {
+                    console.error('Image section creation failed:', error);
+                    alert('画像の追加に失敗しました: ' + error.message);
+                }
+            }
+        };
+        input.click();
+        return;
+    }
+
     let contentType = 'text';
-    let defaultName = '新しいセクション';
+    let defaultName = '新しいファイルビュー';
 
     // セクションタイプに応じた設定
     if (sectionType === 'notepad') {
         contentType = 'notepad';
         defaultName = 'メモ帳';
-    } else if (sectionType === 'image') {
-        contentType = 'image';
-        defaultName = '画像';
+    } else if (sectionType === 'storage') {
+        contentType = 'storage';
+        defaultName = 'ストレージ';
     }
-
 
     // セクションタイプに応じた初期データを設定
     let contentData = { text: '' };
     if (sectionType === 'notepad') {
         contentData = { text: '' };
-    } else if (sectionType === 'image') {
-        contentData = { image_url: '' };
+    } else if (sectionType === 'storage') {
+        contentData = { storage_type: 'local', path: '', view_mode: 'list' };
     }
 
-    const name = prompt('セクション名を入力してください（空白可）:', defaultName);
+    const name = prompt('ファイルビュー名を入力してください（空白可）:', defaultName);
     if (name === null) return; // キャンセルされた場合
 
     const section = await apiCall('/api/sections', {
@@ -463,14 +546,240 @@ async function createNewSection(sectionType = 'text') {
             name: name || defaultName,
             content_type: contentType,
             content_data: contentData,
-            position_x: 50,
-            position_y: 50,
+            position_x: positionX,
+            position_y: positionY,
             width: 300,
             height: 200
         })
     });
     sections.push(section);
     renderPageContent();
+}
+
+// ... existing code ...
+
+// コンテキストメニュー共通処理
+let contextMenu = null;
+
+function hideContextMenu() {
+    if (contextMenu) {
+        contextMenu.remove();
+        contextMenu = null;
+    }
+}
+
+// ページ背景のコンテキストメニュー（セクション作成）
+function showPageContextMenu(e) {
+    // セクションやモーダル上でのクリックは無視
+    if (e.target.closest('.section') || e.target.closest('.modal')) return;
+
+    e.preventDefault();
+    hideContextMenu();
+
+    const x = e.pageX;
+    const y = e.pageY;
+
+    // スクロール位置を考慮して、ドキュメント上の絶対位置を使用
+    // createNewSectionはそのまま座標を使う
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="createNewSection('text', ${x}, ${y})">📝 テキスト作成</div>
+        <div class="context-menu-item" onclick="createNewSection('notepad', ${x}, ${y})">📒 メモ帳作成</div>
+        <div class="context-menu-item" onclick="createNewSection('image', ${x}, ${y})">🖼️ 画像貼り付け</div>
+        <div class="context-menu-item" onclick="createNewSection('storage', ${x}, ${y})">📁 ストレージ作成</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+    setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
+}
+
+// ストレージファイルリストのコンテキストメニュー（表示切替）
+function showStorageViewContextMenu(e, sectionId) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item header">表示モード</div>
+        <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'list')">📋 リスト</div>
+        <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'grid')">🗂️ グリッド</div>
+        <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'thumbnails')">🖼️ サムネイル</div>
+        <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'previews')">👁️ プレビュー</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="fetchSectionFiles(${sectionId})">🔄 更新</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+    setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
+}
+
+// セクションヘッダーのコンテキストメニュー（最前面/最背面移動）
+function showSectionHeaderContextMenu(e, sectionId) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item delete" onclick="deleteSection(${sectionId})">🗑️ 削除</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+    setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
+}
+
+// 最前面へ移動
+async function bringSectionToFront(sectionId) {
+    sectionZIndex += 1;
+    const sectionEl = document.getElementById(`section-${sectionId}`);
+    if (sectionEl) {
+        sectionEl.style.zIndex = sectionZIndex;
+        // サーバーへの保存は実装していないが、必要ならAPIを追加
+    }
+}
+
+// 最背面へ移動
+async function sendSectionToBack(sectionId) {
+    const sectionEl = document.getElementById(`section-${sectionId}`);
+    if (sectionEl) {
+        sectionEl.style.zIndex = 1;
+    }
+}
+
+// ファイルのコンテキストメニュー（削除など）
+function showFileContextMenu(e, sectionId, filename) {
+    if (e.button !== 2) return; // 右クリックのみ
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">削除</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+    setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
+}
+
+function deleteStorageFileAndHide(sectionId, filename) {
+    if (confirm(`${filename} を削除しますか？`)) {
+        deleteStorageFile(sectionId, filename);
+    }
+}
+
+// ページ読み込み完了時の処理
+document.addEventListener('DOMContentLoaded', () => {
+    loadTabs();
+
+    // テーマ適用
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+    }
+
+    // テーマ切り替えボタン（設定モーダル内）
+    const btnToggleTheme = document.getElementById('btnToggleTheme');
+    if (btnToggleTheme) {
+        btnToggleTheme.addEventListener('click', () => {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+    }
+
+    // サイドバー機能の初期化
+    initSidebar();
+
+    // ページ背景の右クリックイベント
+    const pageContent = document.getElementById('pageContent');
+    if (pageContent) {
+        pageContent.addEventListener('contextmenu', showPageContextMenu);
+    }
+});
+
+// サイドバー機能関連
+function initSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const resizer = document.getElementById('sidebarResizer');
+    const toggleBtn = document.getElementById('btnSidebarToggle');
+
+    // 初期幅と状態の復元
+    const savedWidth = parseFloat(localStorage.getItem('sidebarWidth'));
+    const savedCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+    if (!isNaN(savedWidth)) {
+        // 幅のバリデーション（150px〜600pxの範囲に収める）
+        const validWidth = Math.max(150, Math.min(savedWidth, 600));
+        document.documentElement.style.setProperty('--sidebar-width', `${validWidth}px`);
+    }
+
+    if (savedCollapsed) {
+        sidebar.classList.add('collapsed');
+    }
+
+    // トグルボタン
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        });
+    }
+
+    // リサイズ機能
+    if (resizer) {
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault(); // テキスト選択防止
+        });
+
+        function handleMouseMove(e) {
+            if (!isResizing) return;
+            // 最小幅と最大幅の制限
+            const newWidth = Math.max(150, Math.min(e.clientX, 600));
+            document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
+        }
+
+        function handleMouseUp() {
+            if (isResizing) {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+                document.body.style.cursor = '';
+
+                // 幅を保存
+                const currentWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim();
+                localStorage.setItem('sidebarWidth', parseFloat(currentWidth));
+            }
+        }
+    }
 }
 
 async function updateSectionContent(sectionId, contentType, value) {
@@ -887,6 +1196,9 @@ async function fetchSectionFiles(sectionId) {
         if (viewMode === 'list') listEl.classList.remove('grid', 'thumbnails', 'previews');
         else if (viewMode === 'grid') listEl.classList.add('grid');
 
+        // コンテキストメニューを追加 (ストレージビュー切り替え)
+        listEl.oncontextmenu = (e) => showStorageViewContextMenu(e, sectionId);
+
         listEl.innerHTML = files.map(file => {
             const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
             const downloadUrl = `/api/sections/${sectionId}/files/${encodeURIComponent(file.name)}`;
@@ -944,7 +1256,7 @@ function cycleSectionViewMode(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
-    const modes = ['list', 'card', 'thumbnail', 'preview'];
+    const modes = ['list', 'grid', 'thumbnails', 'previews'];
     const currentMode = section.content_data?.view_mode || 'list';
     const currentIndex = modes.indexOf(currentMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
@@ -1028,8 +1340,8 @@ async function deleteStorageFile(sectionId, filename) {
     }
 }
 
-// コンテキストメニュー
-let contextMenu = null;
+// コンテキストメニュー共通処理
+// let contextMenu = null; // Removed redundant declaration
 
 function showContextMenu(e, sectionId, filename) {
     e.preventDefault();
@@ -1590,13 +1902,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnCancelPage').onclick = () => hideModal('modalNewPage');
 
     // 設定
-    document.getElementById('btnSettings').onclick = () => {
-        loadStorageLocations();
-        showModal('modalSettings');
-    };
-    document.getElementById('closeSettings').onclick = () => hideModal('modalSettings');
+    // 設定 (テーマ切り替えのみになったため、古い設定モーダルロジックは無効化または条件付き)
+    const btnSettings = document.getElementById('btnSettings');
+    if (btnSettings) {
+        btnSettings.onclick = () => {
+            // loadStorageLocations(); // 廃止
+            // showModal('modalSettings'); // 廃止
+        };
+    }
+    const closeSettings = document.getElementById('closeSettings');
+    if (closeSettings) {
+        closeSettings.onclick = () => hideModal('modalSettings');
+    }
 
-    // ストレージ追加
+    // ストレージ追加 (廃止)
+    /*
     document.getElementById('btnAddStorage').onclick = () => showModal('modalAddStorage');
     document.getElementById('btnSaveStorage').onclick = () => {
         const name = document.getElementById('storageName').value.trim();
@@ -1610,6 +1930,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('closeAddStorage').onclick = () => hideModal('modalAddStorage');
     document.getElementById('btnCancelStorage').onclick = () => hideModal('modalAddStorage');
+    */
 
     // Enterキーでモーダルを閉じる
     document.getElementById('newTabName').addEventListener('keypress', (e) => {

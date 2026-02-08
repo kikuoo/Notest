@@ -17,122 +17,95 @@ body {
 }
 
 /* サイドバー */
+:root {
+    --sidebar-width: 250px;
+}
+
 .sidebar {
-    width: 250px;
+    width: var(--sidebar-width);
+    min-width: 150px;
+    /* Ensure minimum width */
+    max-width: 600px;
     background-color: #2d2d30;
     color: white;
     display: flex;
     flex-direction: column;
     border-right: 1px solid #3e3e42;
-}
-
-.sidebar-header {
-    padding: 20px;
-    border-bottom: 1px solid #3e3e42;
-}
-
-.sidebar-header h1 {
-    font-size: 24px;
-    margin-bottom: 15px;
-    color: #ffffff;
-}
-
-.btn-new-tab {
-    width: 100%;
-    padding: 10px;
-    background-color: #0078d4;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
-}
-
-.btn-new-tab:hover {
-    background-color: #106ebe;
-}
-
-.tabs-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px 0;
-}
-
-.tab-item {
-    padding: 12px 20px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.tab-item:hover {
-    background-color: #3e3e42;
-}
-
-.tab-item.active {
-    background-color: #0078d4;
-}
-
-.tab-item-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    position: relative;
+    transition: width 0.1s;
+    /* Slight transition for smooth collapse */
+    flex-shrink: 0;
     white-space: nowrap;
+    /* Prevent text wrapping */
+    overflow: hidden;
+    /* Hide overflow content during resize */
 }
 
-.tab-item-delete {
+.sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    /* Allow collapse */
+    padding: 0;
+    overflow: hidden;
+    border: none;
+}
+
+.sidebar-resizer {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    /* Center over the border */
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 100;
     opacity: 0;
     transition: opacity 0.2s;
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 5px;
 }
 
-.tab-item:hover .tab-item-delete {
+.sidebar:hover .sidebar-resizer,
+.sidebar-resizer:hover {
     opacity: 1;
+    background-color: rgba(0, 120, 212, 0.5);
+    /* Blue hint on hover */
 }
 
-.sidebar-footer {
-    padding: 15px 20px;
-    border-top: 1px solid #3e3e42;
-}
+/* ... existing styles ... */
 
-.btn-settings {
-    width: 100%;
-    padding: 10px;
-    background-color: #3e3e42;
-    color: white;
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 5px;
+    left: 10px;
+    z-index: 20;
+    background: transparent;
     border: none;
-    border-radius: 4px;
+    font-size: 20px;
     cursor: pointer;
-    font-size: 14px;
+    color: #666;
+    padding: 5px;
+    border-radius: 4px;
+    line-height: 1;
 }
 
-.btn-settings:hover {
-    background-color: #4a4a4f;
+.sidebar-toggle-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #333;
 }
 
-/* メインコンテンツ */
-.main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: #ffffff;
-}
-
+/* Adjust tab bar to not overlap with toggle button */
 .tab-bar {
-    background-color: #f3f3f3;
-    border-bottom: 1px solid #e1e1e1;
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-    min-height: 40px;
-    overflow-x: auto;
+    padding-left: 45px;
+    /* Make space for the button */
+}
+
+/* Dark theme overrides for toggle button */
+body.dark-theme .sidebar-toggle-btn {
+    color: #d4d4d4;
+}
+
+body.dark-theme .sidebar-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
 }
 
 .page-tab {
@@ -216,6 +189,8 @@ body {
     resize: both;
     overflow: hidden;
     /* Ensure content doesn't spill, handle visible */
+    display: flex;
+    flex-direction: column;
 }
 
 .section-header {
@@ -227,15 +202,17 @@ body {
     align-items: center;
     cursor: move;
     border-radius: 2px 2px 0 0;
-    position: sticky;
-    top: 0;
+    /* position: sticky removed as flex handles layout */
+    /* top: 0 removed */
     z-index: 10;
+    flex-shrink: 0;
 }
 
 .section-memo {
     padding: 8px;
     background-color: #ffffdd;
     border-bottom: 1px solid #e1e1e1;
+    flex-shrink: 0;
 }
 
 .section-memo textarea {
@@ -283,8 +260,12 @@ body {
 
 .section-content {
     padding: 15px;
-    min-height: calc(100% - 100px);
-    /* ヘッダーとメモの高さを考慮 */
+    /* min-height removed */
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    /* Prevent auto-expansion beyond flex container */
+    position: relative;
 }
 
 .section-content.drag-over {
@@ -744,4 +725,176 @@ body {
 
 .context-menu-item.delete {
     color: #d9534f;
+}
+
+.context-menu-divider {
+    height: 1px;
+    background-color: #ddd;
+    margin: 4px 0;
+}
+
+.context-menu-item.header {
+    font-weight: bold;
+    color: #666;
+    font-size: 12px;
+    padding: 4px 15px;
+    cursor: default;
+    pointer-events: none;
+    background-color: transparent;
+}
+
+/* Dark Theme */
+body.dark-theme {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+}
+
+body.dark-theme .main-content,
+body.dark-theme .page-content,
+body.dark-theme .section,
+body.dark-theme .modal-content,
+body.dark-theme .context-menu {
+    background-color: #252526;
+    color: #d4d4d4;
+    border-color: #3e3e42;
+}
+
+body.dark-theme .sidebar {
+    background-color: #252526;
+    border-right-color: #3e3e42;
+}
+
+body.dark-theme .sidebar-header,
+body.dark-theme .sidebar-footer {
+    border-color: #3e3e42;
+}
+
+body.dark-theme .tab-bar {
+    background-color: #2d2d30;
+    border-bottom-color: #3e3e42;
+}
+
+body.dark-theme .page-tab {
+    background-color: #2d2d30;
+    border-color: #3e3e42;
+    color: #d4d4d4;
+}
+
+body.dark-theme .page-tab:hover {
+    background-color: #3e3e42;
+}
+
+body.dark-theme .page-tab.active {
+    background-color: #252526;
+    border-bottom-color: #252526;
+    color: #fff;
+}
+
+body.dark-theme .section-header {
+    background-color: #0078d4;
+    /* Keep or darken slightly */
+    border-color: #3e3e42;
+}
+
+body.dark-theme .section-memo {
+    background-color: #3e3e42;
+    border-bottom-color: #2d2d30;
+    color: #d4d4d4;
+}
+
+body.dark-theme .section-memo textarea {
+    color: #d4d4d4;
+}
+
+/* File Browser Dark Mode */
+body.dark-theme .file-list.grid .file-item,
+body.dark-theme .content-file,
+body.dark-theme .content-link {
+    background-color: #2d2d30;
+    border-color: #3e3e42;
+    color: #d4d4d4;
+}
+
+body.dark-theme .file-item:hover,
+body.dark-theme .directory-item:hover {
+    background-color: #3e3e42;
+}
+
+body.dark-theme .file-toolbar {
+    background-color: #2d2d30;
+    border-bottom-color: #3e3e42;
+}
+
+body.dark-theme .file-path,
+body.dark-theme .file-meta,
+body.dark-theme .content-file-size {
+    color: #999;
+}
+
+/* Inputs & Forms Dark Mode */
+body.dark-theme input[type="text"],
+body.dark-theme select,
+body.dark-theme textarea {
+    background-color: #3e3e42;
+    border-color: #555;
+    color: #fff;
+}
+
+body.dark-theme .btn-secondary,
+body.dark-theme .file-btn,
+body.dark-theme .view-btn {
+    background-color: #3e3e42;
+    border-color: #555;
+    color: #d4d4d4;
+}
+
+body.dark-theme .btn-secondary:hover,
+body.dark-theme .file-btn:hover,
+body.dark-theme .view-btn:hover {
+    background-color: #4a4a4f;
+}
+
+body.dark-theme .view-btn.active {
+    background-color: #252526;
+    color: #4daafc;
+    border-color: #0078d4;
+}
+
+body.dark-theme .context-menu-item {
+    color: #d4d4d4;
+}
+
+body.dark-theme .context-menu-item:hover {
+    background-color: #3e3e42;
+}
+
+body.dark-theme .context-menu-divider {
+    background-color: #3e3e42;
+}
+
+body.dark-theme .modal-content h2,
+body.dark-theme .form-group label {
+    color: #d4d4d4;
+}
+
+body.dark-theme .close {
+    color: #999;
+}
+
+body.dark-theme .close:hover {
+    color: #fff;
+}
+
+body.dark-theme .section-header.notepad-header {
+    background-color: #333 !important;
+    color: #eee !important;
+    border-bottom-color: #444;
+}
+
+body.dark-theme .section-header.notepad-header .section-btn-icon {
+    color: #ccc !important;
+}
+
+body.dark-theme .section-header.notepad-header .section-btn-icon:hover {
+    color: #fff !important;
 }
