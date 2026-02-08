@@ -1862,8 +1862,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSettings = document.getElementById('btnSettings');
     if (btnSettings) {
         btnSettings.onclick = () => {
-            // loadStorageLocations(); // 廃止
-            // showModal('modalSettings'); // 廃止
+            showModal('modalSettings');
+        };
+    }
+
+    // 設定内のテーマ切替ボタン
+    const btnToggleThemeInSettings = document.getElementById('btnToggleThemeInSettings');
+    if (btnToggleThemeInSettings) {
+        btnToggleThemeInSettings.onclick = () => {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
         };
     }
     const closeSettings = document.getElementById('closeSettings');
