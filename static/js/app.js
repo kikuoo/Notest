@@ -1619,6 +1619,32 @@ function setupDirectoryBrowserEvents() {
     document.getElementById('closeSectionSettings').onclick = () => hideModal('modalSectionSettings');
     document.getElementById('btnCancelSectionSettings').onclick = () => hideModal('modalSectionSettings');
 
+    // ストレージタイプ変更時の自動パス設定
+    document.getElementById('sectionStorageType').onchange = async (e) => {
+        const storageType = e.target.value;
+        const pathInput = document.getElementById('sectionStoragePath');
+
+        if (storageType !== 'local' && !pathInput.value) {
+            try {
+                const response = await fetch('/api/system/cloud-storage-paths');
+                const cloudPaths = await response.json();
+
+                if (cloudPaths[storageType]) {
+                    pathInput.value = cloudPaths[storageType];
+                } else {
+                    const storageNames = {
+                        'onedrive': 'OneDrive',
+                        'googledrive': 'Google Drive',
+                        'icloud': 'iCloud Drive'
+                    };
+                    alert(`${storageNames[storageType]}が見つかりませんでした。\n手動でパスを入力してください。\n\n例:\n- OneDrive: ~/Library/CloudStorage/OneDrive-...\n- Google Drive: ~/Library/CloudStorage/GoogleDrive-...\n- iCloud: ~/Library/Mobile Documents/com~apple~CloudDocs`);
+                }
+            } catch (error) {
+                console.error('Failed to fetch cloud storage paths:', error);
+            }
+        }
+    };
+
     // セクション保存
     document.getElementById('btnSaveSectionSettings').onclick = async () => {
         const sectionId = parseInt(document.getElementById('editingSectionId').value);
@@ -1873,6 +1899,28 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDirectoryBrowserEvents();
     initSidebarToggle();
     loadTabs();
+
+    // メモ欄表示切替の初期化
+    const memoToggle = document.getElementById('toggleMemoField');
+    const savedMemoVisible = localStorage.getItem('showMemoField');
+
+    // 初期状態の設定（デフォルトはtrue）
+    if (savedMemoVisible === 'false') {
+        memoToggle.checked = false;
+        document.body.classList.add('hide-memo-fields');
+    }
+
+    // トグル変更時の処理
+    memoToggle.addEventListener('change', (e) => {
+        const showMemo = e.target.checked;
+        localStorage.setItem('showMemoField', showMemo);
+
+        if (showMemo) {
+            document.body.classList.remove('hide-memo-fields');
+        } else {
+            document.body.classList.add('hide-memo-fields');
+        }
+    });
 });
 
 // セクション用コンテキストメニュー

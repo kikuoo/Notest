@@ -623,6 +623,43 @@ def create_directory():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/system/cloud-storage-paths', methods=['GET'])
+def get_cloud_storage_paths():
+    """利用可能なクラウドストレージパスを検出"""
+    cloud_paths = {}
+    
+    # macOS/Windows共通のクラウドストレージ検出
+    cloud_storage_base = os.path.expanduser('~/Library/CloudStorage')
+    
+    if os.path.exists(cloud_storage_base):
+        try:
+            # OneDrive
+            onedrive_dirs = [d for d in os.listdir(cloud_storage_base) 
+                            if d.startswith('OneDrive')]
+            if onedrive_dirs:
+                cloud_paths['onedrive'] = os.path.join(cloud_storage_base, onedrive_dirs[0])
+            
+            # Google Drive
+            gdrive_dirs = [d for d in os.listdir(cloud_storage_base) 
+                          if 'GoogleDrive' in d or 'Google Drive' in d]
+            if gdrive_dirs:
+                cloud_paths['googledrive'] = os.path.join(cloud_storage_base, gdrive_dirs[0])
+        except Exception as e:
+            print(f"Error scanning cloud storage: {e}")
+    
+    # iCloud Drive (macOS)
+    icloud_path = os.path.expanduser('~/Library/Mobile Documents/com~apple~CloudDocs')
+    if os.path.exists(icloud_path):
+        cloud_paths['icloud'] = icloud_path
+    
+    # Windows OneDrive (追加サポート)
+    if os.name == 'nt':
+        onedrive_win = os.path.expanduser('~/OneDrive')
+        if os.path.exists(onedrive_win):
+            cloud_paths['onedrive'] = onedrive_win
+    
+    return jsonify(cloud_paths)
+
 
 if __name__ == '__main__':
     with app.app_context():
