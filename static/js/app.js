@@ -317,7 +317,7 @@ function createSectionElement(section) {
                  oncontextmenu="showSectionHeaderContextMenu(event, ${section.id})" 
                  style="background-color: ${section.content_data?.bgColor || '#f9f9f9'};">
                 <span class="section-title" title="${escapeHtml(section.name || 'メモ帳')}">${escapeHtml(section.name || 'メモ帳')}</span>
-                <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">≡</button>
+                <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">⋮</button>
             </div>
         `;
     } else {
@@ -327,7 +327,7 @@ function createSectionElement(section) {
                 <span class="section-title" title="${escapeHtml(section.name || 'ファイルビュー')}">${escapeHtml(section.name || 'ファイルビュー')}</span>
                 <div class="section-controls">
                     ${section.content_type === 'storage' ? `<button class="section-btn-icon" id="view-toggle-${section.id}" onclick="cycleSectionViewMode(${section.id})" title="表示切替">${getViewIcon(section.content_data?.view_mode || 'list')}</button>` : ''}
-                    <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">≡</button>
+                    <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">⋮</button>
                 </div>
             </div>
         `;
