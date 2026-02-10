@@ -94,32 +94,22 @@
                 <label>ファイルビュー名:</label>
                 <input type="text" id="sectionNameInput" placeholder="ファイルビュー名">
             </div>
+
             <div class="form-group">
-                <label>コンテンツタイプ:</label>
-                <select id="sectionContentType">
-                    <option value="text">テキスト (Text)</option>
-                    <option value="storage">ストレージ (Storage)</option>
+                <label>ストレージタイプ:</label>
+                <select id="sectionStorageType">
+                    <option value="local">ローカル (Local Folder)</option>
+                    <option value="onedrive">OneDrive</option>
+                    <option value="googledrive">Google Drive</option>
+                    <option value="icloud">iCloud</option>
                 </select>
             </div>
-
-            <div id="storageSettingsGroup"
-                style="display: none; padding-left: 15px; border-left: 3px solid #0078d4; margin-bottom: 15px;">
-                <div class="form-group">
-                    <label>ストレージタイプ:</label>
-                    <select id="sectionStorageType">
-                        <option value="local">ローカル (Local Folder)</option>
-                        <option value="onedrive">OneDrive</option>
-                        <option value="googledrive">Google Drive</option>
-                        <option value="icloud">iCloud</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>フォルダパス:</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="sectionStoragePath" placeholder="フォルダパスを入力"
-                            style="margin-bottom: 0; flex: 1;">
-                        <button class="btn-secondary" id="btnBrowseSectionPath" style="white-space: nowrap;">参照</button>
-                    </div>
+            <div class="form-group">
+                <label>フォルダパス:</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="sectionStoragePath" placeholder="フォルダパスを入力"
+                        style="margin-bottom: 0; flex: 1;">
+                    <button class="btn-secondary" id="btnBrowseSectionPath" style="white-space: nowrap;">参照</button>
                 </div>
             </div>
 
@@ -174,7 +164,7 @@
 
     <!-- プレビューパネル表示/非表示ボタン -->
     <button id="togglePreviewBtn" class="toggle-preview-btn" onclick="toggleFilePreview()" title="プレビューパネルを表示/非表示">
-        👁️
+        📄
     </button>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

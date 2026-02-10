@@ -185,7 +185,7 @@ body.dark-theme .sidebar-toggle-btn:hover {
 }
 
 .page-tab {
-    padding: 8px 16px;
+    padding: 6px 16px;
     margin: 0 2px;
     /* Tighten margins */
     background-color: #e0e0e0;
@@ -1053,7 +1053,7 @@ body.dark-theme .section-header.notepad-header .section-btn-icon:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 15px;
+    padding: 6px 15px;
     cursor: pointer;
     color: #e0e0e0;
     transition: background-color 0.2s;

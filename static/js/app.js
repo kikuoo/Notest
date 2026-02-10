@@ -279,8 +279,8 @@ function renderPageContent() {
     dropdown.id = 'sectionDropdown';
     dropdown.innerHTML = `
         <div class="dropdown-item" onclick="createNewSection('text')">
-            <span class="dropdown-icon">📝</span>
-            <span>ファイルビュー（通常）</span>
+            <span class="dropdown-icon">📄</span>
+            <span>ファイルビュー</span>
         </div>
         <div class="dropdown-item" onclick="createNewSection('notepad')">
             <span class="dropdown-icon">📋</span>
@@ -614,7 +614,7 @@ function showStorageViewContextMenu(e, sectionId) {
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'list')">📋 リスト</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'grid')">🗂️ グリッド</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'thumbnails')">🖼️ サムネイル</div>
-        <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'previews')">👁️ プレビュー</div>
+        <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'previews')">📄 プレビュー</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="fetchSectionFiles(${sectionId})">🔄 更新</div>
     `;
@@ -1180,7 +1180,7 @@ function getViewIcon(mode) {
         'list': '≡',
         'grid': '⊞',
         'thumbnails': '□',
-        'previews': '👁'
+        'previews': '📄'
     };
     return icons[mode] || icons['list'];
 }
@@ -1531,32 +1531,20 @@ function configureSection(sectionId) {
 
     // 現在の設定を取得
     const currentData = section.content_data || {};
-    const currentType = section.content_type || 'text';
     const currentStorageType = currentData.storage_type || 'local';
     const currentPath = currentData.path || '';
 
     // モーダルに値をセット
     document.getElementById('editingSectionId').value = sectionId;
     document.getElementById('sectionNameInput').value = section.name || '';
-    document.getElementById('sectionContentType').value = currentType;
     document.getElementById('sectionStorageType').value = currentStorageType;
     document.getElementById('sectionStoragePath').value = currentPath;
-
-    // ストレージ設定の表示制御
-    toggleStorageSettings(currentType);
 
     // モーダルを表示
     showModal('modalSectionSettings');
 }
 
-function toggleStorageSettings(type) {
-    const storageSettings = document.getElementById('storageSettingsGroup');
-    if (type === 'storage') {
-        storageSettings.style.display = 'block';
-    } else {
-        storageSettings.style.display = 'none';
-    }
-}
+
 
 // フォルダ参照ボタン
 function openDirectoryBrowser() {
@@ -1631,49 +1619,26 @@ function setupDirectoryBrowserEvents() {
     document.getElementById('closeSectionSettings').onclick = () => hideModal('modalSectionSettings');
     document.getElementById('btnCancelSectionSettings').onclick = () => hideModal('modalSectionSettings');
 
-    // タイプ変更時の表示切り替え
-    document.getElementById('sectionContentType').onchange = (e) => {
-        toggleStorageSettings(e.target.value);
-    };
-
     // セクション保存
     document.getElementById('btnSaveSectionSettings').onclick = async () => {
         const sectionId = parseInt(document.getElementById('editingSectionId').value);
         const name = document.getElementById('sectionNameInput').value.trim();
-        const contentType = document.getElementById('sectionContentType').value;
         const storageType = document.getElementById('sectionStorageType').value;
         const path = document.getElementById('sectionStoragePath').value.trim();
 
+        if (!path) {
+            alert('フォルダパスを入力してください');
+            return;
+        }
+
         const updateData = {
             name: name,
-            content_type: contentType,
-            content_data: {}
-        };
-
-        const section = sections.find(s => s.id === sectionId);
-        // コンテンツタイプに応じたデータをセット
-        if (contentType === 'storage') {
-            if (!path) {
-                alert('フォルダパスを入力してください');
-                return;
-            }
-            updateData.content_data = {
+            content_type: 'storage',
+            content_data: {
                 storage_type: storageType,
                 path: path
-            };
-        } else if (contentType === 'text') {
-            if (section.content_type === 'text') {
-                updateData.content_data = section.content_data;
-            } else {
-                updateData.content_data = { text: '' };
             }
-        } else if (contentType === 'link') {
-            if (section.content_type === 'link') {
-                updateData.content_data = section.content_data;
-            } else {
-                updateData.content_data = { url: '#', title: 'New Link' };
-            }
-        }
+        };
 
         await apiCall(`/api/sections/${sectionId}`, {
             method: 'PUT',
@@ -1681,18 +1646,17 @@ function setupDirectoryBrowserEvents() {
         });
 
         // ローカルデータ更新して再描画
+        const section = sections.find(s => s.id === sectionId);
         if (section) {
             section.name = name;
-            section.content_type = contentType;
+            section.content_type = 'storage';
             section.content_data = updateData.content_data;
         }
         hideModal('modalSectionSettings');
         renderPageContent(); // 再描画
 
-        // ストレージタイプの場合はファイルを読み込む
-        if (contentType === 'storage') {
-            await fetchSectionFiles(sectionId);
-        }
+        // ファイルを読み込む
+        await fetchSectionFiles(sectionId);
     };
 
     // セクション削除
