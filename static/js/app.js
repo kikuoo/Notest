@@ -334,7 +334,7 @@ function createSectionElement(section) {
     }
 
     sectionEl.innerHTML = headerHtml + `
-        ${section.content_type !== 'notepad' && section.content_type !== 'image' && section.content_type !== 'storage' ? `
+        ${section.content_type !== 'notepad' && section.content_type !== 'image' ? `
             <div class="section-memo">
                 <textarea placeholder="メモ..." onchange="updateSectionContent(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
             </div>
