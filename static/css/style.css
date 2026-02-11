@@ -785,6 +785,12 @@ body.dark-theme .sidebar-toggle-btn:hover {
     background-color: #e3f2fd;
 }
 
+.directory-item.selected {
+    background-color: #bbdefb;
+    border-left: 3px solid #0078d4;
+}
+
+
 /* フォームグループ内のボタン配置調整 */
 .form-group input[type="text"] {
     margin-bottom: 0;
@@ -909,6 +915,12 @@ body.dark-theme .file-item:hover,
 body.dark-theme .directory-item:hover {
     background-color: #3e3e42;
 }
+
+body.dark-theme .directory-item.selected {
+    background-color: #264f78;
+    border-left: 3px solid #4daafc;
+}
+
 
 body.dark-theme .file-toolbar {
     background-color: #2d2d30;

@@ -1133,14 +1133,34 @@ async function fetchSectionFiles(sectionId) {
         // コンテキストメニューを追加 (ストレージビュー切り替え)
         listEl.oncontextmenu = (e) => showStorageViewContextMenu(e, sectionId);
 
-        listEl.innerHTML = files.map(file => {
-            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
-            const downloadUrl = `/api/sections/${sectionId}/files/${encodeURIComponent(file.name)}`;
+        listEl.innerHTML = files.map(item => {
+            // フォルダの場合
+            if (item.is_directory) {
+                return `
+                    <div class="file-item folder-item" 
+                         data-section-id="${sectionId}"
+                         data-filename="${escapeHtml(item.name)}"
+                         data-is-folder="true"
+                         title="${escapeHtml(item.name)}"
+                         ondblclick="navigateToFolder(${sectionId}, '${escapeHtml(item.name)}')"
+                         oncontextmenu="showFolderContextMenu(event, ${sectionId}, '${escapeHtml(item.name)}')">
+                        <div class="file-icon">📁</div>
+                        <div class="file-info">
+                            <div class="file-name">${escapeHtml(item.name)}</div>
+                            <div class="file-meta">フォルダ - ${new Date(item.updated_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // ファイルの場合
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.name);
+            const downloadUrl = `/api/sections/${sectionId}/files/${encodeURIComponent(item.name)}`;
 
             let icon = '📄';
             if (isImage) icon = '🖼';
-            else if (file.name.toLowerCase().endsWith('.pdf')) icon = '📕';
-            else if (file.name.toLowerCase().endsWith('.zip')) icon = '📦';
+            else if (item.name.toLowerCase().endsWith('.pdf')) icon = '📕';
+            else if (item.name.toLowerCase().endsWith('.zip')) icon = '📦';
 
             let previewHtml = '';
             if (viewMode === 'thumbnails' && isImage) {
@@ -1153,17 +1173,17 @@ async function fetchSectionFiles(sectionId) {
                 <div class="file-item" 
                      draggable="true"
                      data-section-id="${sectionId}"
-                     data-filename="${escapeHtml(file.name)}"
-                     title="${escapeHtml(file.name)}"
-                     onclick="showFilePreview(${sectionId}, '${escapeHtml(file.name)}')"
-                     ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(file.name)}')"
-                     oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(file.name)}')"
-                     ondragstart="handleFileDragStart(event, ${sectionId}, '${escapeHtml(file.name)}')">
+                     data-filename="${escapeHtml(item.name)}"
+                     title="${escapeHtml(item.name)}"
+                     onclick="showFilePreview(${sectionId}, '${escapeHtml(item.name)}')"
+                     ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(item.name)}')"
+                     oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(item.name)}')"
+                     ondragstart="handleFileDragStart(event, ${sectionId}, '${escapeHtml(item.name)}')">
                     ${previewHtml}
                     <div class="file-icon">${isImage && (viewMode === 'thumbnails' || viewMode === 'previews') ? '' : icon}</div>
-                    <div class="file-info">
-                        <div class="file-name">${escapeHtml(file.name)}</div>
-                        <div class="file-meta">${formatFileSize(file.size)} - ${new Date(file.updated_at).toLocaleString()}</div>
+                     <div class="file-info">
+                        <div class="file-name">${escapeHtml(item.name)}</div>
+                        <div class="file-meta">${formatFileSize(item.size)} - ${new Date(item.updated_at).toLocaleString()}</div>
                     </div>
                 </div>
             `;
@@ -1173,6 +1193,49 @@ async function fetchSectionFiles(sectionId) {
         listEl.innerHTML = `<div style="padding: 10px; color: red;">エラー: ${escapeHtml(error.message)}</div>`;
     }
 }
+
+// フォルダに移動
+async function navigateToFolder(sectionId, folderName) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const data = typeof section.content_data === 'string'
+        ? JSON.parse(section.content_data || '{}')
+        : (section.content_data || {});
+
+    const currentPath = data.path || '';
+    const newPath = `${currentPath}/${folderName}`;
+
+    // セクションのパスを更新
+    await updateSectionStorageConfig(sectionId, data.storage_type || 'local', newPath);
+
+    // ファイルリストを再読み込み
+    await fetchSectionFiles(sectionId);
+}
+
+
+// フォルダ用コンテキストメニュー
+function showFolderContextMenu(e, sectionId, folderName) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="navigateToFolder(${sectionId}, '${escapeHtml(folderName)}')">📂 開く</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
+}
+
 
 // ビューモードのアイコンを取得
 function getViewIcon(mode) {
@@ -1573,17 +1636,44 @@ async function loadDirectory(path) {
         if (data.directories.length === 0) {
             listEl.innerHTML = '<div style="padding: 10px; color: #999;">サブフォルダはありません</div>';
         } else {
-            listEl.innerHTML = data.directories.map(dir => `
-                <div class="directory-item" onclick="loadDirectory('${escapeHtml(data.current_path)}/${escapeHtml(dir)}')">
-                     📁 ${escapeHtml(dir)}
-                </div>
-            `).join('');
+            listEl.innerHTML = data.directories.map(dir => {
+                // パスを正しく結合（末尾の/を考慮）
+                const currentPath = data.current_path.endsWith('/')
+                    ? data.current_path.slice(0, -1)
+                    : data.current_path;
+                const fullPath = `${currentPath}/${dir}`;
+
+                return `
+                    <div class="directory-item"
+                         data-path="${escapeHtml(fullPath)}"
+                         onclick="selectDirectoryItem(this, '${escapeHtml(fullPath)}')"
+                         ondblclick="loadDirectory('${escapeHtml(fullPath)}')">
+                         📁 ${escapeHtml(dir)}
+                    </div>
+                `;
+            }).join('');
         }
     } catch (error) {
         listEl.innerHTML = `<div style="padding: 10px; color: red;">エラー: ${escapeHtml(error.message)}</div>`;
         pathEl.textContent = 'エラー';
     }
 }
+
+// フォルダアイテムを選択
+let selectedDirectoryPath = null;
+
+function selectDirectoryItem(element, path) {
+    // 以前の選択を解除
+    const previousSelected = document.querySelector('.directory-item.selected');
+    if (previousSelected) {
+        previousSelected.classList.remove('selected');
+    }
+
+    // 新しい選択を設定
+    element.classList.add('selected');
+    selectedDirectoryPath = path;
+}
+
 
 // ディレクトリブラウザのイベント設定
 document.addEventListener('DOMContentLoaded', () => {
@@ -1728,10 +1818,12 @@ function setupDirectoryBrowserEvents() {
     };
 
     document.getElementById('btnSelectDirectory').onclick = () => {
-        const selectedPath = document.getElementById('currentBrowsePath').dataset.path;
-        if (selectedPath) {
-            document.getElementById('sectionStoragePath').value = selectedPath;
+        // 選択されたフォルダがあればそれを使用、なければ現在のパスを使用
+        const pathToUse = selectedDirectoryPath || document.getElementById('currentBrowsePath').dataset.path;
+        if (pathToUse) {
+            document.getElementById('sectionStoragePath').value = pathToUse;
             hideModal('modalDirectoryBrowser');
+            selectedDirectoryPath = null; // リセット
         }
     };
 }

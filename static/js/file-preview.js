@@ -49,7 +49,16 @@ function showFilePreview(sectionId, filename) {
                 <p><strong>ファイル名:</strong> ${escapeHtml(filename)}</p>
                 <p><strong>種類:</strong> PDFドキュメント</p>
             </div>
-            <iframe src="${downloadUrl}" style="width: 100%; height: calc(100% - 80px);"></iframe>
+            <embed src="${downloadUrl}#toolbar=1&navpanes=1&scrollbar=1" 
+                   type="application/pdf" 
+                   style="width: 100%; height: calc(100% - 100px); min-height: 500px;"
+                   onerror="this.style.display='none'; document.getElementById('pdfError').style.display='block';">
+            <div id="pdfError" style="display: none; padding: 20px; text-align: center;">
+                <p>PDFのプレビューに失敗しました。</p>
+                <button class="btn-primary" onclick="window.open('${downloadUrl}', '_blank')" style="margin-top: 10px;">
+                    PDFを開く
+                </button>
+            </div>
         `;
     } else if (['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'csv'].includes(ext)) {
         // テキストファイル

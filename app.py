@@ -325,18 +325,23 @@ def list_section_files(section_id):
         if not path or not os.path.exists(path):
             return jsonify({'error': f'Path not found: {path}'}), 404
             
-        files = []
-        for filename in os.listdir(path):
-            file_path = os.path.join(path, filename)
-            if os.path.isfile(file_path):
-                stats = os.stat(file_path)
-                files.append({
-                    'name': filename,
-                    'size': stats.st_size,
-                    'updated_at': datetime.fromtimestamp(stats.st_mtime).isoformat()
-                })
+        items = []
+        for item_name in os.listdir(path):
+            item_path = os.path.join(path, item_name)
+            stats = os.stat(item_path)
+            is_dir = os.path.isdir(item_path)
+            
+            items.append({
+                'name': item_name,
+                'size': stats.st_size if not is_dir else 0,
+                'updated_at': datetime.fromtimestamp(stats.st_mtime).isoformat(),
+                'is_directory': is_dir
+            })
         
-        return jsonify(files)
+        # フォルダを先に、ファイルを後に並べる
+        items.sort(key=lambda x: (not x['is_directory'], x['name'].lower()))
+        
+        return jsonify(items)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -410,7 +415,17 @@ def download_section_file(section_id, filename):
         if not path or not os.path.exists(path):
             return jsonify({'error': f'Path not found: {path}'}), 404
             
-        return send_file(os.path.join(path, filename), as_attachment=False)
+        file_path = os.path.join(path, filename)
+        
+        # MIMEタイプを推測
+        import mimetypes
+        mimetype, _ = mimetypes.guess_type(filename)
+        
+        # PDFの場合は明示的にMIMEタイプを設定
+        if filename.lower().endswith('.pdf'):
+            mimetype = 'application/pdf'
+        
+        return send_file(file_path, as_attachment=False, mimetype=mimetype)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
