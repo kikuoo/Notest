@@ -610,12 +610,15 @@ function showStorageViewContextMenu(e, sectionId) {
     contextMenu.style.top = `${e.clientY}px`;
 
     contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="navigateToParentFolder(${sectionId})">⬅️ 戻る</div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item header">表示モード</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'list')">📋 リスト</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'grid')">🗂️ グリッド</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'thumbnails')">🖼️ サムネイル</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'previews')">📄 プレビュー</div>
         <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="createNewFolderInSection(${sectionId})">📁 新規フォルダ</div>
         <div class="context-menu-item" onclick="fetchSectionFiles(${sectionId})">🔄 更新</div>
     `;
 
@@ -1212,6 +1215,67 @@ async function navigateToFolder(sectionId, folderName) {
     // ファイルリストを再読み込み
     await fetchSectionFiles(sectionId);
 }
+
+// セクション内に新規フォルダを作成
+async function createNewFolderInSection(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const data = typeof section.content_data === 'string'
+        ? JSON.parse(section.content_data || '{}')
+        : (section.content_data || {});
+
+    const currentPath = data.path || '';
+
+    // フォルダ名を入力
+    const folderName = prompt('新しいフォルダ名を入力してください:');
+    if (!folderName || !folderName.trim()) return;
+
+    try {
+        // APIを使ってフォルダを作成
+        await apiCall('/api/system/directories', {
+            method: 'POST',
+            body: JSON.stringify({
+                path: currentPath,
+                name: folderName.trim()
+            })
+        });
+
+        // ファイルリストを再読み込み
+        await fetchSectionFiles(sectionId);
+    } catch (error) {
+        alert('フォルダの作成に失敗しました: ' + error.message);
+    }
+}
+
+// 親フォルダに戻る
+async function navigateToParentFolder(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const data = typeof section.content_data === 'string'
+        ? JSON.parse(section.content_data || '{}')
+        : (section.content_data || {});
+
+    const currentPath = data.path || '';
+
+    // 親フォルダのパスを取得
+    const parentPath = currentPath.split('/').slice(0, -1).join('/');
+
+    // ルートより上には行けない
+    if (!parentPath || parentPath === currentPath) {
+        alert('これ以上戻れません');
+        return;
+    }
+
+    // セクションのパスを更新
+    await updateSectionStorageConfig(sectionId, data.storage_type || 'local', parentPath);
+
+    // ファイルリストを再読み込み
+    await fetchSectionFiles(sectionId);
+}
+
+
 
 
 // フォルダ用コンテキストメニュー
