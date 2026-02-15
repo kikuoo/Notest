@@ -6,16 +6,24 @@ load_dotenv()
 
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_mail import Mail, Message
 from config import Config
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import shutil
+import bcrypt
+import secrets
 
 app = Flask(__name__)
 app.config.from_object(Config)
 Config.init_app(app)
 
 db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+mail = Mail(app)
+
 
 # データベースモデル
 class Tab(db.Model):
@@ -53,6 +61,39 @@ class Section(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+# ユーザー認証モデル
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    username = db.Column(db.String(100), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Flask-Loginに必要なメソッド
+    @property
+    def is_authenticated(self):
+        return True
+    
+    @property
+    def is_anonymous(self):
+        return False
+    
+    def get_id(self):
+        return str(self.id)
+
+class EmailVerificationToken(db.Model):
+    __tablename__ = 'email_verification_tokens'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False, index=True)
+    token = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class StorageLocation(db.Model):
     __tablename__ = 'storage_locations'
     id = db.Column(db.Integer, primary_key=True)
@@ -61,6 +102,11 @@ class StorageLocation(db.Model):
     path = db.Column(db.String(1000), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Flask-Loginのユーザーローダー
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 @app.route('/')
 def index():
@@ -674,6 +720,315 @@ def get_cloud_storage_paths():
             cloud_paths['onedrive'] = onedrive_win
     
     return jsonify(cloud_paths)
+
+# ==================== 認証API ====================
+
+# ヘルパー関数: トークン生成
+def generate_verification_token():
+    """メール認証用のトークンを生成"""
+    return secrets.token_urlsafe(32)
+
+# ヘルパー関数: メール送信
+def send_verification_email(email, token):
+    """認証メールを送信"""
+    verification_url = f"http://localhost:5001/verify-email?token={token}"
+    
+    msg = Message(
+        subject="【Notest】メールアドレスの確認",
+        recipients=[email],
+        body=f"""
+Notestへようこそ！
+
+以下のリンクをクリックして、メールアドレスの確認を完了してください：
+
+{verification_url}
+
+このリンクは24時間有効です。
+
+※このメールに心当たりがない場合は、無視してください。
+        """,
+        html=f"""
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <h2 style="color: #0078d4;">Notestへようこそ！</h2>
+    <p>以下のボタンをクリックして、メールアドレスの確認を完了してください：</p>
+    <p style="margin: 30px 0;">
+        <a href="{verification_url}" 
+           style="background-color: #0078d4; color: white; padding: 12px 24px; 
+                  text-decoration: none; border-radius: 4px; display: inline-block;">
+            メールアドレスを確認
+        </a>
+    </p>
+    <p style="color: #666; font-size: 14px;">
+        このリンクは24時間有効です。
+    </p>
+    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+    <p style="color: #999; font-size: 12px;">
+        ※このメールに心当たりがない場合は、無視してください。
+    </p>
+</body>
+</html>
+        """
+    )
+    
+    mail.send(msg)
+
+# 1. メールアドレス送信（仮登録）
+@app.route('/api/auth/request-registration', methods=['POST'])
+def request_registration():
+    """メールアドレスを受け取り、認証メールを送信"""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        
+        if not email:
+            return jsonify({'error': 'メールアドレスを入力してください'}), 400
+        
+        # メールアドレスの形式チェック
+        from email_validator import validate_email, EmailNotValidError
+        try:
+            validate_email(email)
+        except EmailNotValidError:
+            return jsonify({'error': '有効なメールアドレスを入力してください'}), 400
+        
+        # 既に登録済みかチェック
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({'error': 'このメールアドレスは既に登録されています'}), 400
+        
+        # トークン生成
+        token = generate_verification_token()
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+        
+        # 既存の未使用トークンを削除
+        EmailVerificationToken.query.filter_by(email=email, used=False).delete()
+        
+        # 新しいトークンを保存
+        verification_token = EmailVerificationToken(
+            email=email,
+            token=token,
+            expires_at=expires_at
+        )
+        db.session.add(verification_token)
+        db.session.commit()
+        
+        # メール送信
+        send_verification_email(email, token)
+        
+        return jsonify({
+            'message': '確認メールを送信しました。メールをご確認ください。',
+            'email': email
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Registration request error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'メール送信に失敗しました'}), 500
+
+# 2. メール認証
+@app.route('/api/auth/verify-email/<token>', methods=['GET'])
+def verify_email(token):
+    """トークンを検証してメールアドレスを確認"""
+    try:
+        verification = EmailVerificationToken.query.filter_by(token=token, used=False).first()
+        
+        if not verification:
+            return jsonify({'error': 'トークンが無効です'}), 400
+        
+        if verification.expires_at < datetime.utcnow():
+            return jsonify({'error': 'トークンの有効期限が切れています'}), 400
+        
+        # トークンを使用済みにマーク
+        verification.used = True
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'メールアドレスが確認されました',
+            'email': verification.email,
+            'token': token
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Email verification error: {e}")
+        return jsonify({'error': '認証に失敗しました'}), 500
+
+# 3. ユーザー登録完了
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    """ユーザー情報を受け取り、登録を完了"""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        agreed_to_terms = data.get('agreedToTerms', False)
+        
+        # バリデーション
+        if not token:
+            return jsonify({'error': 'トークンが必要です'}), 400
+        
+        if not username:
+            return jsonify({'error': 'ユーザー名を入力してください'}), 400
+        
+        if not password or len(password) < 8:
+            return jsonify({'error': 'パスワードは8文字以上で入力してください'}), 400
+        
+        if not agreed_to_terms:
+            return jsonify({'error': 'プライバシーポリシーと利用規約に同意してください'}), 400
+        
+        # トークン検証
+        verification = EmailVerificationToken.query.filter_by(token=token, used=True).first()
+        if not verification:
+            return jsonify({'error': '無効なトークンです'}), 400
+        
+        # 既に登録済みかチェック
+        existing_user = User.query.filter_by(email=verification.email).first()
+        if existing_user:
+            return jsonify({'error': 'このメールアドレスは既に登録されています'}), 400
+        
+        # パスワードをハッシュ化
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        # ユーザー作成
+        user = User(
+            email=verification.email,
+            username=username,
+            password_hash=password_hash
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        # ログイン
+        login_user(user)
+        
+        return jsonify({
+            'message': '登録が完了しました',
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'username': user.username
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Registration error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': '登録に失敗しました'}), 500
+
+# 4. ログイン
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    """ログイン処理"""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '').strip()
+        
+        if not email or not password:
+            return jsonify({'error': 'メールアドレスとパスワードを入力してください'}), 400
+        
+        # ユーザー検索
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            return jsonify({'error': 'メールアドレスまたはパスワードが正しくありません'}), 401
+        
+        # パスワード検証
+        if not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+            return jsonify({'error': 'メールアドレスまたはパスワードが正しくありません'}), 401
+        
+        if not user.is_active:
+            return jsonify({'error': 'このアカウントは無効化されています'}), 403
+        
+        # ログイン
+        login_user(user)
+        
+        return jsonify({
+            'message': 'ログインしました',
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'username': user.username
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({'error': 'ログインに失敗しました'}), 500
+
+# 5. ログアウト
+@app.route('/api/auth/logout', methods=['POST'])
+@login_required
+def logout():
+    """ログアウト処理"""
+    logout_user()
+    return jsonify({'message': 'ログアウトしました'}), 200
+
+# 6. 現在のユーザー情報取得
+@app.route('/api/auth/me', methods=['GET'])
+@login_required
+def get_current_user():
+    """ログイン中のユーザー情報を取得"""
+    return jsonify({
+        'user': {
+            'id': current_user.id,
+            'email': current_user.email,
+            'username': current_user.username,
+            'created_at': current_user.created_at.isoformat()
+        }
+    }), 200
+
+# 7. ユーザー情報更新
+@app.route('/api/auth/me', methods=['PUT'])
+@login_required
+def update_current_user():
+    """ユーザー情報を更新"""
+    try:
+        data = request.get_json()
+        current_password = data.get('currentPassword', '').strip()
+        new_username = data.get('username', '').strip()
+        new_password = data.get('newPassword', '').strip()
+        
+        # 現在のパスワード確認
+        if not current_password:
+            return jsonify({'error': '現在のパスワードを入力してください'}), 400
+        
+        if not bcrypt.checkpw(current_password.encode('utf-8'), current_user.password_hash.encode('utf-8')):
+            return jsonify({'error': '現在のパスワードが正しくありません'}), 401
+        
+        # ユーザー名更新
+        if new_username:
+            current_user.username = new_username
+        
+        # パスワード更新
+        if new_password:
+            if len(new_password) < 8:
+                return jsonify({'error': '新しいパスワードは8文字以上で入力してください'}), 400
+            
+            password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            current_user.password_hash = password_hash
+        
+        current_user.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'ユーザー情報を更新しました',
+            'user': {
+                'id': current_user.id,
+                'email': current_user.email,
+                'username': current_user.username
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Update user error: {e}")
+        return jsonify({'error': '更新に失敗しました'}), 500
 
 
 if __name__ == '__main__':
