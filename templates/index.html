@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/preview-panel.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/section-dropdown.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notepad-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
 </head>
 
 <body>
@@ -23,6 +24,8 @@
                 <!-- タブが動的に追加されます -->
             </div>
             <div class="sidebar-footer">
+                <!-- ユーザーメニュー -->
+                <div id="userMenuContainer"></div>
                 <!-- <button class="btn-settings" id="btnToggleTheme">🌓 テーマ切替</button> -->
                 <button class="btn-settings" id="btnSettings">⋮ 設定</button>
             </div>
@@ -182,10 +185,111 @@
         📄
     </button>
 
+    <!-- ログインモーダル -->
+    <div id="loginModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <button class="close-modal" onclick="hideLoginModal()">×</button>
+            <div class="auth-modal-header">
+                <h2>ログイン</h2>
+                <p>WowNoteにログイン</p>
+            </div>
+            <form class="auth-form" onsubmit="handleLogin(event)">
+                <div id="loginError" class="auth-error"></div>
+                <div class="auth-form-group">
+                    <label for="loginEmail">メールアドレス</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="auth-form-group">
+                    <label for="loginPassword">パスワード</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="auth-btn">ログイン</button>
+            </form>
+            <div class="auth-link">
+                アカウントをお持ちでない方は <a href="#" onclick="showRegistrationModal(); return false;">新規登録</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登録モーダル -->
+    <div id="registrationModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <button class="close-modal" onclick="hideRegistrationModal()">×</button>
+
+            <!-- ステップ1: メールアドレス入力 -->
+            <div id="emailStep" class="auth-step active">
+                <div class="auth-modal-header">
+                    <h2>新規登録</h2>
+                    <p>メールアドレスを入力してください</p>
+                </div>
+                <form class="auth-form" onsubmit="handleEmailSubmit(event)">
+                    <div id="emailError" class="auth-error"></div>
+                    <div class="auth-form-group">
+                        <label for="regEmailInput">メールアドレス</label>
+                        <input type="email" id="regEmailInput" required>
+                    </div>
+                    <button type="submit" class="auth-btn">確認メールを送信</button>
+                </form>
+                <div class="auth-link">
+                    既にアカウントをお持ちの方は <a href="#" onclick="showLoginModal(); return false;">ログイン</a>
+                </div>
+            </div>
+
+            <!-- ステップ2: メール確認待ち -->
+            <div id="verificationStep" class="auth-step">
+                <div class="verification-message">
+                    <div class="icon">📧</div>
+                    <h3>確認メールを送信しました</h3>
+                    <p>
+                        <span class="verification-email" id="verificationEmail"></span> 宛に確認メールを送信しました。<br>
+                        メール内のリンクをクリックして、登録を続けてください。
+                    </p>
+                    <p style="font-size: 12px; color: #999;">
+                        ※メールが届かない場合は、迷惑メールフォルダをご確認ください。
+                    </p>
+                </div>
+            </div>
+
+            <!-- ステップ3: ユーザー情報入力 -->
+            <div id="registrationStep" class="auth-step">
+                <div class="auth-modal-header">
+                    <h2>ユーザー情報入力</h2>
+                    <p>登録を完了してください</p>
+                </div>
+                <form class="auth-form" onsubmit="handleRegistration(event)">
+                    <div id="registrationError" class="auth-error"></div>
+                    <input type="hidden" id="regEmail">
+                    <input type="hidden" id="regToken">
+                    <div class="auth-form-group">
+                        <label for="regUsername">ユーザー名</label>
+                        <input type="text" id="regUsername" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="regPassword">パスワード（8文字以上）</label>
+                        <input type="password" id="regPassword" minlength="8" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="regConfirmPassword">パスワード（確認）</label>
+                        <input type="password" id="regConfirmPassword" minlength="8" required>
+                    </div>
+                    <div class="auth-checkbox-group">
+                        <input type="checkbox" id="agreeTerms" required>
+                        <label for="agreeTerms">
+                            <a href="/privacy-policy" target="_blank">プライバシーポリシー</a>と
+                            <a href="/terms-of-service" target="_blank">利用規約</a>に同意します
+                        </label>
+                    </div>
+                    <button type="submit" class="auth-btn">登録</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/file-preview.js') }}"></script>
     <script src="{{ url_for('static', filename='js/image-functions.js') }}"></script>
     <script src="{{ url_for('static', filename='js/notepad-settings.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
 </body>
 
 </html>

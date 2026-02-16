@@ -112,6 +112,24 @@ def load_user(user_id):
 def index():
     return render_template('index.html')
 
+@app.route('/privacy-policy')
+def privacy_policy():
+    return render_template('privacy-policy.html')
+
+@app.route('/terms-of-service')
+def terms_of_service():
+    return render_template('terms-of-service.html')
+
+# メール認証ページ（リダイレクト用）
+@app.route('/verify-email')
+def verify_email_page():
+    """メール認証リンクからのリダイレクト"""
+    token = request.args.get('token')
+    if token:
+        # トークンをクエリパラメータとして渡してメインページにリダイレクト
+        return render_template('index.html')
+    return render_template('index.html')
+
 # タブ関連のAPI
 @app.route('/api/tabs', methods=['GET'])
 def get_tabs():
