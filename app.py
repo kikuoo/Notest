@@ -21,7 +21,8 @@ Config.init_app(app)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'landing'  # 未ログイン時はランディングページへリダイレクト
+login_manager.login_message = None  # ログインメッセージを表示しない
 mail = Mail(app)
 
 

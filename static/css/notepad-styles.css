@@ -187,3 +187,30 @@
     padding: 6px 16px;
     font-size: 13px;
 }
+/* Notepad Toolbar */
+.notepad-toolbar {
+    display: flex;
+    gap: 5px;
+    padding: 8px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.notepad-btn {
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.notepad-btn:hover {
+    background: #e8e8e8;
+    border-color: #999;
+}
+
+.notepad-btn:active {
+    background: #d0d0d0;
+}

@@ -2232,3 +2232,144 @@ async function deleteSectionFromMenu(sectionId) {
         alert('セクションの削除に失敗しました: ' + error.message);
     }
 }
+
+// ファイルプレビュー関連
+let currentPreviewFile = null; // 現在プレビュー中のファイル
+
+function showFilePreview(sectionId, filename) {
+    const panel = document.getElementById('filePreviewPanel');
+    const content = document.getElementById('previewContent');
+    const fileNameEl = document.getElementById('previewFileName');
+
+    // 同じファイルをクリックした場合はプレビューを閉じる
+    if (currentPreviewFile && currentPreviewFile.sectionId === sectionId && currentPreviewFile.filename === filename) {
+        closeFilePreview();
+        return;
+    }
+
+    // 現在のプレビューファイルを記録
+    currentPreviewFile = { sectionId, filename };
+
+    const downloadUrl = `${window.location.origin}/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+    const ext = filename.toLowerCase().split('.').pop();
+
+    fileNameEl.textContent = filename;
+
+    // ファイルタイプに応じてプレビューを生成
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext)) {
+        content.innerHTML = `<img src="${downloadUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
+    } else if (['mp4', 'webm', 'ogg'].includes(ext)) {
+        content.innerHTML = `<video controls style="max-width: 100%; max-height: 100%;"><source src="${downloadUrl}"></video>`;
+    } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
+        content.innerHTML = `<audio controls style="width: 100%;"><source src="${downloadUrl}"></audio>`;
+    } else if (ext === 'pdf') {
+        content.innerHTML = `<iframe src="${downloadUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+    } else if (['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'csv'].includes(ext)) {
+        fetch(downloadUrl)
+            .then(r => r.text())
+            .then(text => {
+                content.innerHTML = `<pre style="padding: 20px; overflow: auto; height: 100%;">${escapeHtml(text)}</pre>`;
+            });
+    } else {
+        content.innerHTML = `<div class="preview-placeholder">このファイル形式はプレビューできません<br><br><a href="${downloadUrl}" download>ダウンロード</a></div>`;
+    }
+
+    panel.classList.add('active');
+}
+
+function closeFilePreview() {
+    const panel = document.getElementById('filePreviewPanel');
+    panel.classList.remove('active');
+    currentPreviewFile = null; // プレビューファイルをクリア
+}
+
+function toggleFilePreview() {
+    const panel = document.getElementById('filePreviewPanel');
+    panel.classList.toggle('active');
+}
+
+// メモ帳の編集機能
+function printNotepad(sectionId) {
+    const textarea = document.getElementById(`notepad-${sectionId}`);
+    if (!textarea) return;
+
+    const printWindow = window.open('', '', 'width=800,height=600');
+    printWindow.document.write(`
+        <html>
+        <head><title>印刷</title></head>
+        <body style="font-family: ${textarea.style.fontFamily}; font-size: ${textarea.style.fontSize}; color: ${textarea.style.color}; white-space: pre-wrap;">
+        ${escapeHtml(textarea.value)}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function copyNotepadText(sectionId) {
+    const textarea = document.getElementById(`notepad-${sectionId}`);
+    if (!textarea) return;
+
+    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+    const textToCopy = selectedText || textarea.value;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        console.log('テキストをコピーしました');
+    });
+}
+
+function cutNotepadText(sectionId) {
+    const textarea = document.getElementById(`notepad-${sectionId}`);
+    if (!textarea) return;
+
+    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+    if (!selectedText) return;
+
+    navigator.clipboard.writeText(selectedText).then(() => {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        textarea.value = textarea.value.substring(0, start) + textarea.value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start;
+
+        // 変更を保存
+        updateSectionContent(sectionId, 'notepad', textarea.value);
+});
+}
+
+function pasteNotepadText(sectionId) {
+    const textarea = document.getElementById(`notepad-${sectionId}`);
+    if (!textarea) return;
+
+    navigator.clipboard.readText().then(text => {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        textarea.value = textarea.value.substring(0, start) + text + textarea.value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + text.length;
+
+        // 変更を保存
+        updateSectionContent(sectionId, 'notepad', textarea.value);
+});
+}
+
+function showNotepadContextMenu(e, sectionId) {
+    e.preventDefault();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="printNotepad(${sectionId})">🖨️ 印刷</div>
+        <div class="context-menu-item" onclick="copyNotepadText(${sectionId})">📋 コピー</div>
+        <div class="context-menu-item" onclick="cutNotepadText(${sectionId})">✂️ 切り取り</div>
+        <div class="context-menu-item" onclick="pasteNotepadText(${sectionId})">📄 貼り付け</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
+}

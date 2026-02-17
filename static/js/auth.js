@@ -224,6 +224,11 @@ async function handleRegistration(event) {
 
 // ログアウト
 async function handleLogout() {
+    // 確認ダイアログを表示
+    if (!confirm('ログアウトしますか？')) {
+        return; // キャンセルされた場合は何もしない
+    }
+
     try {
         const response = await fetch('/api/auth/logout', {
             method: 'POST',
