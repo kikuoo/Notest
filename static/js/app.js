@@ -379,7 +379,7 @@ function renderSectionContent(section) {
             setTimeout(() => fetchSectionFiles(section.id), 0);
             return `
                 <div class="file-browser" id="file-browser-${section.id}">
-                    <div class="file-list" id="file-list-${section.id}">
+                    <div class="file-list" id="file-list-${section.id}" oncontextmenu="showStorageBackgroundContextMenu(event, ${section.id})">
                         <div style="padding: 10px; color: #666;">読み込み中...</div>
                     </div>
                 </div>
@@ -664,26 +664,6 @@ async function sendSectionToBack(sectionId) {
     if (sectionEl) {
         sectionEl.style.zIndex = 1;
     }
-}
-
-// ファイルのコンテキストメニュー（削除など）
-function showFileContextMenu(e, sectionId, filename) {
-    if (e.button !== 2) return; // 右クリックのみ
-    e.preventDefault();
-    e.stopPropagation();
-    hideContextMenu();
-
-    contextMenu = document.createElement('div');
-    contextMenu.className = 'context-menu';
-    contextMenu.style.left = `${e.clientX}px`;
-    contextMenu.style.top = `${e.clientY}px`;
-
-    contextMenu.innerHTML = `
-        <div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">削除</div>
-    `;
-
-    document.body.appendChild(contextMenu);
-    setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
 }
 
 function deleteStorageFileAndHide(sectionId, filename) {
@@ -1289,9 +1269,18 @@ function showFolderContextMenu(e, sectionId, folderName) {
     contextMenu.style.left = `${e.clientX}px`;
     contextMenu.style.top = `${e.clientY}px`;
 
-    contextMenu.innerHTML = `
+    let menuItems = `
         <div class="context-menu-item" onclick="navigateToFolder(${sectionId}, '${escapeHtml(folderName)}')">📂 開く</div>
+        <div class="context-menu-item" onclick="copyFile(${sectionId}, '${escapeHtml(folderName)}')">📋 コピー</div>
+        <div class="context-menu-item" onclick="cutFile(${sectionId}, '${escapeHtml(folderName)}')">✂️ 切り取り</div>
     `;
+
+    // 貼り付けは常に表示（クリップボードが空の場合は無効化）
+    menuItems += `<div class="context-menu-item" onclick="pasteFile(${sectionId})" ${!clipboardFile ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>📄 貼り付け</div>`;
+
+    menuItems += `<div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(folderName)}')">🗑️ 削除</div>`;
+
+    contextMenu.innerHTML = menuItems;
 
     document.body.appendChild(contextMenu);
 
@@ -1610,6 +1599,44 @@ async function extractZipFile(sectionId, filename) {
         console.error('Extract error:', error);
         alert('解凍に失敗しました: ' + error.message);
     }
+}
+
+// ストレージセクションの背景用コンテキストメニュー
+function showStorageBackgroundContextMenu(e, sectionId) {
+    // ファイルやフォルダ上でのクリックは無視
+    if (e.target.closest('.file-item')) {
+        return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    let menuItems = `
+        <div class="context-menu-item" onclick="createNewFolderInSection(${sectionId})">📁 新規フォルダ</div>
+    `;
+
+    // 貼り付けは常に表示（クリップボードが空の場合は無効化）
+    if (clipboardFile) {
+        menuItems += `<div class="context-menu-item" onclick="pasteFile(${sectionId})">📄 貼り付け</div>`;
+    } else {
+        menuItems += `<div class="context-menu-item" style="opacity: 0.5; pointer-events: none;">📄 貼り付け</div>`;
+    }
+
+    menuItems += `<div class="context-menu-item" onclick="fetchSectionFiles(${sectionId})">🔄 更新</div>`;
+
+    contextMenu.innerHTML = menuItems;
+
+    document.body.appendChild(contextMenu);
+
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
 }
 
 // 空のファイルリスト用コンテキストメニュー

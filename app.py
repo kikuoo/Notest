@@ -109,7 +109,14 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 @app.route('/')
+def landing():
+    """ランディングページ"""
+    return render_template('landing.html')
+
+@app.route('/app')
+@login_required
 def index():
+    """メインアプリケーション（ログイン必須）"""
     return render_template('index.html')
 
 @app.route('/privacy-policy')
@@ -120,15 +127,19 @@ def privacy_policy():
 def terms_of_service():
     return render_template('terms-of-service.html')
 
+@app.route('/legal')
+def legal():
+    return render_template('legal.html')
+
 # メール認証ページ（リダイレクト用）
 @app.route('/verify-email')
 def verify_email_page():
     """メール認証リンクからのリダイレクト"""
     token = request.args.get('token')
     if token:
-        # トークンをクエリパラメータとして渡してメインページにリダイレクト
-        return render_template('index.html')
-    return render_template('index.html')
+        # トークンをクエリパラメータとして渡してランディングページにリダイレクト
+        return redirect(f'/?token={token}')
+    return redirect('/')
 
 # タブ関連のAPI
 @app.route('/api/tabs', methods=['GET'])
@@ -880,16 +891,12 @@ def register():
     try:
         data = request.get_json()
         token = data.get('token')
-        username = data.get('username', '').strip()
         password = data.get('password', '').strip()
         agreed_to_terms = data.get('agreedToTerms', False)
         
         # バリデーション
         if not token:
             return jsonify({'error': 'トークンが必要です'}), 400
-        
-        if not username:
-            return jsonify({'error': 'ユーザー名を入力してください'}), 400
         
         if not password or len(password) < 8:
             return jsonify({'error': 'パスワードは8文字以上で入力してください'}), 400
@@ -909,6 +916,9 @@ def register():
         
         # パスワードをハッシュ化
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        # メールアドレスからユーザー名を自動生成
+        username = verification.email.split('@')[0]
         
         # ユーザー作成
         user = User(

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WowNote - クラウド対応ノートアプリ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+
+<body>
+    <!-- ヘッダー -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="logo">WowNote</h1>
+                <nav class="nav">
+                    <button class="btn-secondary" onclick="showLoginModal()">ログイン</button>
+                    <button class="btn-primary" onclick="showRegistrationModal()">無料で始める</button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- ヒーローセクション -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2 class="hero-title">あなたのアイデアを、<br>どこでも、いつでも</h2>
+                <p class="hero-subtitle">WowNoteは、クラウドストレージと完全統合されたノートアプリです。<br>OneDrive、Google
+                    Drive、iCloudのファイルを直接管理できます。</p>
+                <div class="hero-buttons">
+                    <button class="btn-primary btn-large" onclick="showRegistrationModal()">今すぐ無料で始める</button>
+                    <button class="btn-secondary btn-large" onclick="showLoginModal()">ログイン</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 特徴セクション -->
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">WowNoteの特徴</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">☁️</div>
+                    <h3>クラウドストレージ統合</h3>
+                    <p>OneDrive、Google Drive、iCloudと完全統合。既存のファイルをそのまま管理できます。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📝</div>
+                    <h3>リッチテキストエディタ</h3>
+                    <p>Markdown対応のエディタで、美しいノートを簡単に作成。コードブロックもサポート。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🗂️</div>
+                    <h3>柔軟な整理機能</h3>
+                    <p>タブ、ページ、セクションで自由に整理。あなたの思考に合わせた構造を作れます。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🖼️</div>
+                    <h3>ファイルプレビュー</h3>
+                    <p>画像、PDF、動画など、様々なファイル形式をアプリ内で直接プレビュー。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>カスタマイズ可能</h3>
+                    <p>ダークモード対応。セクションごとに背景色やフォントを自由にカスタマイズ。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>高速・軽量</h3>
+                    <p>シンプルで直感的なインターフェース。ストレスフリーな操作性を実現。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTAセクション -->
+    <section class="cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2>今すぐWowNoteを始めましょう</h2>
+                <p>無料でアカウントを作成して、すべての機能をお試しください</p>
+                <button class="btn-primary btn-large" onclick="showRegistrationModal()">無料で始める</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- フッター -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>WowNote</h3>
+                    <p>運営: kikuootech</p>
+                </div>
+                <div class="footer-section">
+                    <h4>法的情報</h4>
+                    <ul>
+                        <li><a href="/privacy-policy" target="_blank">プライバシーポリシー</a></li>
+                        <li><a href="/terms-of-service" target="_blank">利用規約</a></li>
+                        <li><a href="/legal" target="_blank">特定商取引法に基づく表記</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>決済方法</h4>
+                    <p>Stripe による安全な決済</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 kikuootech. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 認証モーダル（index.htmlから移植） -->
+    <!-- ログインモーダル -->
+    <div id="loginModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <button class="close-modal" onclick="hideLoginModal()">×</button>
+            <div class="auth-modal-header">
+                <h2>ログイン</h2>
+                <p>WowNoteにログイン</p>
+            </div>
+            <form class="auth-form" onsubmit="handleLogin(event)">
+                <div id="loginError" class="auth-error"></div>
+                <div class="auth-form-group">
+                    <label for="loginEmail">メールアドレス</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="auth-form-group">
+                    <label for="loginPassword">パスワード</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="auth-btn">ログイン</button>
+            </form>
+            <div class="auth-link">
+                アカウントをお持ちでない方は <a href="#" onclick="showRegistrationModal(); return false;">新規登録</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登録モーダル -->
+    <div id="registrationModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <button class="close-modal" onclick="hideRegistrationModal()">×</button>
+
+            <!-- ステップ1: メールアドレス入力 -->
+            <div id="emailStep" class="auth-step active">
+                <div class="auth-modal-header">
+                    <h2>新規登録</h2>
+                    <p>メールアドレスを入力してください</p>
+                </div>
+                <form class="auth-form" onsubmit="handleEmailSubmit(event)">
+                    <div id="emailError" class="auth-error"></div>
+                    <div class="auth-form-group">
+                        <label for="regEmailInput">メールアドレス</label>
+                        <input type="email" id="regEmailInput" required>
+                    </div>
+                    <button type="submit" class="auth-btn">確認メールを送信</button>
+                </form>
+                <div class="auth-link">
+                    既にアカウントをお持ちの方は <a href="#" onclick="showLoginModal(); return false;">ログイン</a>
+                </div>
+            </div>
+
+            <!-- ステップ2: メール確認待ち -->
+            <div id="verificationStep" class="auth-step">
+                <div class="verification-message">
+                    <div class="icon">📧</div>
+                    <h3>確認メールを送信しました</h3>
+                    <p>
+                        <span class="verification-email" id="verificationEmail"></span> 宛に確認メールを送信しました。<br>
+                        メール内のリンクをクリックして、登録を続けてください。
+                    </p>
+                    <p style="font-size: 12px; color: #999;">
+                        ※メールが届かない場合は、迷惑メールフォルダをご確認ください。
+                    </p>
+                </div>
+            </div>
+
+            <!-- ステップ3: パスワード設定 -->
+            <div id="registrationStep" class="auth-step">
+                <div class="auth-modal-header">
+                    <h2>パスワード設定</h2>
+                    <p>登録を完了してください</p>
+                </div>
+                <form class="auth-form" onsubmit="handleRegistration(event)">
+                    <div id="registrationError" class="auth-error"></div>
+                    <input type="hidden" id="regEmail">
+                    <input type="hidden" id="regToken">
+                    <div class="auth-form-group">
+                        <label for="regPassword">パスワード（8文字以上）</label>
+                        <input type="password" id="regPassword" minlength="8" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="regConfirmPassword">パスワード（確認）</label>
+                        <input type="password" id="regConfirmPassword" minlength="8" required>
+                    </div>
+                    <div class="auth-checkbox-group">
+                        <input type="checkbox" id="agreeTerms" required>
+                        <label for="agreeTerms">
+                            <a href="/privacy-policy" target="_blank">プライバシーポリシー</a>と
+                            <a href="/terms-of-service" target="_blank">利用規約</a>に同意します
+                        </label>
+                    </div>
+                    <button type="submit" class="auth-btn">登録</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+
+</html>

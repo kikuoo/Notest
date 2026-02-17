@@ -253,17 +253,13 @@
             <!-- ステップ3: ユーザー情報入力 -->
             <div id="registrationStep" class="auth-step">
                 <div class="auth-modal-header">
-                    <h2>ユーザー情報入力</h2>
+                    <h2>パスワード設定</h2>
                     <p>登録を完了してください</p>
                 </div>
                 <form class="auth-form" onsubmit="handleRegistration(event)">
                     <div id="registrationError" class="auth-error"></div>
                     <input type="hidden" id="regEmail">
                     <input type="hidden" id="regToken">
-                    <div class="auth-form-group">
-                        <label for="regUsername">ユーザー名</label>
-                        <input type="text" id="regUsername" required>
-                    </div>
                     <div class="auth-form-group">
                         <label for="regPassword">パスワード（8文字以上）</label>
                         <input type="password" id="regPassword" minlength="8" required>

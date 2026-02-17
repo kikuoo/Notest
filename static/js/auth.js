@@ -75,7 +75,7 @@ async function handleLogin(event) {
 
         if (response.ok) {
             hideLoginModal();
-            location.reload(); // ページをリロードしてログイン状態を反映
+            window.location.href = '/app'; // アプリページにリダイレクト
         } else {
             errorEl.textContent = data.error || 'ログインに失敗しました';
             errorEl.style.display = 'block';
@@ -169,7 +169,6 @@ async function verifyEmailToken(token) {
 async function handleRegistration(event) {
     event.preventDefault();
 
-    const username = document.getElementById('regUsername').value;
     const password = document.getElementById('regPassword').value;
     const confirmPassword = document.getElementById('regConfirmPassword').value;
     const agreedToTerms = document.getElementById('agreeTerms').checked;
@@ -199,7 +198,6 @@ async function handleRegistration(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 token,
-                username,
                 password,
                 agreedToTerms
             })
@@ -209,7 +207,7 @@ async function handleRegistration(event) {
 
         if (response.ok) {
             hideRegistrationModal();
-            location.reload(); // ページをリロードしてログイン状態を反映
+            window.location.href = '/app'; // アプリページにリダイレクト
         } else {
             errorEl.textContent = data.error || '登録に失敗しました';
             errorEl.style.display = 'block';
@@ -227,10 +225,19 @@ async function handleRegistration(event) {
 // ログアウト
 async function handleLogout() {
     try {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        location.reload();
+        const response = await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // ログアウト成功またはエラーに関わらず、ランディングページにリダイレクト
+        window.location.href = '/';
     } catch (error) {
         console.error('Logout error:', error);
+        // エラーが発生してもランディングページにリダイレクト
+        window.location.href = '/';
     }
 }
 
@@ -262,9 +269,10 @@ async function initUserMenu() {
         if (response.ok) {
             // ログイン済み
             const data = await response.json();
+            const displayName = data.user.email.split('@')[0]; // メールアドレスの@前を表示
             container.innerHTML = `
                 <button class="btn-settings" onclick="handleLogout()">
-                    👤 ${data.user.username} | ログアウト
+                    👤 ${displayName} | ログアウト
                 </button>
             `;
         } else {
