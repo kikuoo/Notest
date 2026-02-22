@@ -806,6 +806,8 @@ body.dark-theme .sidebar-toggle-btn:hover {
     min-width: 150px;
     padding: 5px 0;
     border-radius: 4px;
+    max-height: calc(100vh - 10px);
+    overflow-y: auto;
 }
 
 .context-menu-item {

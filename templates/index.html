@@ -95,6 +95,30 @@
                     オフにすると、ファイルビューのメモ欄が非表示になります
                 </div>
             </div>
+
+            <!-- サブスクリプション情報 -->
+            <div class="form-group" style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px;">
+                <h3 style="margin-bottom: 15px;">ご利用状況</h3>
+                <div id="subscriptionStatusContainer" style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                    <p>ステータス取得中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- アプリロックモーダル (トライアル・サブスク終了後) -->
+    <div class="modal" id="modalAppLock" style="display: none; z-index: 99999; background-color: rgba(0,0,0,0.85);">
+        <div class="modal-content" style="text-align: center; max-width: 450px; padding: 40px 30px;">
+            <h2 style="color: #d9534f; margin-bottom: 20px;">ご利用期間が終了しました</h2>
+            <p style="margin-bottom: 15px; font-size: 15px;">30日間の無料トライアル期間、または現在のサブスクリプションの有効期限が終了しました。</p>
+            <p style="margin-bottom: 25px; font-size: 15px;">引き続きWowNoteをご利用いただくには、以下のボタンより決済（サブスクリプション登録）をお願いいたします。</p>
+            <div class="modal-actions" style="justify-content: center;">
+                <a id="btnSubscribeNow" href="#" class="btn-primary"
+                    style="text-decoration: none; padding: 12px 24px; font-size: 16px;">サブスクリプション登録へ進む</a>
+            </div>
+            <div style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button class="btn-secondary" onclick="handleLogout()" style="width: 100%;">ログアウト</button>
+            </div>
         </div>
     </div>
 

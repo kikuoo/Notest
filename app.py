@@ -14,6 +14,10 @@ import json
 import shutil
 import bcrypt
 import secrets
+import stripe
+
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -72,6 +76,14 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Stripe サブスクリプション管理
+    stripe_customer_id = db.Column(db.String(255), nullable=True)
+    stripe_subscription_id = db.Column(db.String(255), nullable=True)
+    subscription_status = db.Column(db.String(50), default='trialing') # 'trialing', 'active', 'canceled', 'expired'
+    trial_end = db.Column(db.DateTime, nullable=True)
+    current_period_end = db.Column(db.DateTime, nullable=True)
+    cancel_at_period_end = db.Column(db.Boolean, default=False)
     
     # Flask-Loginに必要なメソッド
     @property
@@ -493,6 +505,9 @@ def download_section_file(section_id, filename):
             
         file_path = os.path.join(path, filename)
         
+        if not os.path.exists(file_path):
+            return jsonify({'error': f'File not found: {filename}'}), 404
+        
         # MIMEタイプを推測
         import mimetypes
         mimetype, _ = mimetypes.guess_type(filename)
@@ -500,8 +515,10 @@ def download_section_file(section_id, filename):
         # PDFの場合は明示的にMIMEタイプを設定
         if filename.lower().endswith('.pdf'):
             mimetype = 'application/pdf'
+            
+        as_attachment = request.args.get('download', '0') == '1'
         
-        return send_file(file_path, as_attachment=False, mimetype=mimetype)
+        return send_file(file_path, as_attachment=as_attachment, mimetype=mimetype)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -543,6 +560,15 @@ def move_section_file(source_section_id, filename):
         if not os.path.exists(source_file):
             return jsonify({'error': 'Source file not found'}), 404
             
+        # ターゲットに同名ファイル/フォルダがある場合は別名にする
+        base_name = os.path.basename(target_file)
+        dir_name = os.path.dirname(target_file)
+        counter = 1
+        name, ext = os.path.splitext(base_name)
+        while os.path.exists(target_file):
+            target_file = os.path.join(dir_name, f"{name}_{counter}{ext}")
+            counter += 1
+
         # ファイルを移動
         shutil.move(source_file, target_file)
         
@@ -588,10 +614,24 @@ def copy_section_file(source_section_id, filename):
         if not os.path.exists(source_file):
             return jsonify({'error': 'Source file not found'}), 404
             
-        # ファイルをコピー
-        shutil.copy2(source_file, target_file)
+        # ターゲットに同名ファイル/フォルダがある場合は別名にする
+        base_name = os.path.basename(target_file)
+        dir_name = os.path.dirname(target_file)
+        counter = 1
+        name, ext = os.path.splitext(base_name)
+        while os.path.exists(target_file):
+            target_file = os.path.join(dir_name, f"{name}_{counter}{ext}")
+            counter += 1
+
+        # ファイル・フォルダをコピー
+        if os.path.isdir(source_file):
+            import shutil
+            shutil.copytree(source_file, target_file)
+        else:
+            import shutil
+            shutil.copy2(source_file, target_file)
         
-        return jsonify({'message': 'File copied successfully'}), 200
+        return jsonify({'message': 'File/Folder copied successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -925,7 +965,9 @@ def register():
         user = User(
             email=verification.email,
             username=username,
-            password_hash=password_hash
+            password_hash=password_hash,
+            trial_end=datetime.utcnow() + timedelta(days=30),
+            subscription_status='trialing'
         )
         db.session.add(user)
         db.session.commit()
@@ -948,6 +990,100 @@ def register():
         import traceback
         traceback.print_exc()
         return jsonify({'error': '登録に失敗しました'}), 500
+
+# ==================== Stripe & サブスクリプション API ====================
+
+@app.route('/api/user/status', methods=['GET'])
+@login_required
+def user_status():
+    user = current_user
+    
+    # トライアルの残り日数を計算
+    now = datetime.utcnow()
+    trial_days_left = 0
+    if user.trial_end and user.trial_end > now:
+        trial_days_left = (user.trial_end - now).days
+    
+    # ロック状態かどうかの判定 (トライアル終了 ＆ activeではない)
+    is_locked = False
+    if user.subscription_status != 'active':
+        if not user.trial_end or user.trial_end < now:
+            is_locked = True
+            
+    return jsonify({
+        'subscription_status': user.subscription_status,
+        'trial_end': user.trial_end.isoformat() if user.trial_end else None,
+        'trial_days_left': trial_days_left,
+        'current_period_end': user.current_period_end.isoformat() if user.current_period_end else None,
+        'cancel_at_period_end': user.cancel_at_period_end,
+        'is_locked': is_locked,
+        'payment_link': os.getenv('STRIPE_PAYMENT_LINK', '') + f'?client_reference_id={user.id}'
+    })
+
+@app.route('/api/user/cancel-subscription', methods=['POST'])
+@login_required
+def cancel_subscription():
+    user = current_user
+    if not user.stripe_subscription_id:
+        return jsonify({'error': 'サブスクリプションが見つかりません'}), 400
+        
+    try:
+        stripe.Subscription.modify(
+            user.stripe_subscription_id,
+            cancel_at_period_end=True
+        )
+        user.cancel_at_period_end = True
+        db.session.commit()
+        return jsonify({'message': '次回更新時での退会手続きが完了しました。有効期限までは引き続きご利用いただけます。'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/webhook/stripe', methods=['POST'])
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get('Stripe-Signature')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        return 'Invalid payload', 400
+    except stripe.error.SignatureVerificationError as e:
+        return 'Invalid signature', 400
+
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        
+        user_id = session.get('client_reference_id')
+        if user_id:
+            user = User.query.get(int(user_id))
+            if user:
+                user.stripe_customer_id = session.get('customer')
+                user.stripe_subscription_id = session.get('subscription')
+                user.subscription_status = 'active'
+                db.session.commit()
+                
+    elif event['type'] == 'customer.subscription.updated':
+        subscription = event['data']['object']
+        customer_id = subscription.get('customer')
+        user = User.query.filter_by(stripe_customer_id=customer_id).first()
+        if user:
+            user.subscription_status = subscription.get('status')
+            user.current_period_end = datetime.utcfromtimestamp(subscription.get('current_period_end'))
+            user.cancel_at_period_end = subscription.get('cancel_at_period_end', False)
+            db.session.commit()
+            
+    elif event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        customer_id = subscription.get('customer')
+        user = User.query.filter_by(stripe_customer_id=customer_id).first()
+        if user:
+            user.subscription_status = 'canceled'
+            user.cancel_at_period_end = True
+            db.session.commit()
+
+    return jsonify(success=True)
 
 # 4. ログイン
 @app.route('/api/auth/login', methods=['POST'])

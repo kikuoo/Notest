@@ -7,8 +7,13 @@ let sections = [];
 let draggedSection = null;
 let sectionZIndex = 1000;
 
+// ナビゲーション履歴の管理用
+// 履歴の構造: { [sectionId]: { history: string[], currentIndex: number } }
+let sectionNavigationHistory = {};
+
 // API呼び出し関数
 async function apiCall(url, options = {}) {
+    const showAlert = options.showAlert !== false;
     try {
         console.log(`API Call: ${url}`, options);
         const response = await fetch(url, {
@@ -36,7 +41,9 @@ async function apiCall(url, options = {}) {
         return data;
     } catch (error) {
         console.error('API call failed:', error);
-        alert('エラーが発生しました: ' + error.message);
+        if (showAlert) {
+            alert('エラーが発生しました: ' + error.message);
+        }
         throw error;
     }
 }
@@ -314,7 +321,7 @@ function createSectionElement(section) {
     if (section.content_type === 'notepad') {
         headerHtml = `
             <div class="section-header notepad-header" 
-                 oncontextmenu="showSectionHeaderContextMenu(event, ${section.id})" 
+                 oncontextmenu="showUnifiedNotepadContextMenu(event, ${section.id})" 
                  style="background-color: ${section.content_data?.bgColor || '#f9f9f9'};">
                 <span class="section-title" title="${escapeHtml(section.name || 'メモ帳')}">${escapeHtml(section.name || 'メモ帳')}</span>
                 <button class="section-btn-icon" onclick="configureSection(${section.id})" title="設定" style="font-size: 18px;">⋮</button>
@@ -323,7 +330,7 @@ function createSectionElement(section) {
     } else {
         // Standard header for text, image, storage
         headerHtml = `
-            <div class="section-header" oncontextmenu="showSectionHeaderContextMenu(event, ${section.id})">
+            <div class="section-header" oncontextmenu="${section.content_type === 'storage' ? `showUnifiedStorageContextMenu(event, ${section.id}, 'header')` : `showSectionHeaderContextMenu(event, ${section.id})`}">
                 <span class="section-title" title="${escapeHtml(section.name || 'ファイルビュー')}">${escapeHtml(section.name || 'ファイルビュー')}</span>
                 <div class="section-controls">
                     ${section.content_type === 'storage' ? `<button class="section-btn-icon" id="view-toggle-${section.id}" onclick="cycleSectionViewMode(${section.id})" title="表示切替">${getViewIcon(section.content_data?.view_mode || 'list')}</button>` : ''}
@@ -379,7 +386,7 @@ function renderSectionContent(section) {
             setTimeout(() => fetchSectionFiles(section.id), 0);
             return `
                 <div class="file-browser" id="file-browser-${section.id}">
-                    <div class="file-list" id="file-list-${section.id}" oncontextmenu="showStorageBackgroundContextMenu(event, ${section.id})">
+                    <div class="file-list" id="file-list-${section.id}" oncontextmenu="showUnifiedStorageContextMenu(event, ${section.id}, 'background')">
                         <div style="padding: 10px; color: #666;">読み込み中...</div>
                     </div>
                 </div>
@@ -392,11 +399,9 @@ function renderSectionContent(section) {
             color: ${data.fontColor || '#333333'};
             `;
             return `
-                <textarea class="notepad-content"
-            style = "${style}"
-            placeholder = "ここにメモを入力してください..."
-            onchange = "updateSectionContent(${section.id}, 'notepad', this.value)" > ${escapeHtml(data.text || '')}</textarea>
+                <textarea class="notepad-content" id="notepad-${section.id}" style="${style}" placeholder="ここにメモを入力してください..." onchange="updateSectionContent(${section.id}, 'notepad', this.value)">${escapeHtml(data.text || '')}</textarea>
                 `;
+
         case 'image':
             const imageUrl = data.image_url || '';
             return `
@@ -568,6 +573,27 @@ function hideContextMenu() {
     }
 }
 
+// メニューが画面外にはみ出さないように位置を調整する
+function adjustContextMenuPosition(menu, e) {
+    if (!menu) return;
+    const rect = menu.getBoundingClientRect();
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + rect.width > window.innerWidth) {
+        x = window.innerWidth - rect.width - 5;
+    }
+    if (y + rect.height > window.innerHeight) {
+        y = window.innerHeight - rect.height - 5;
+    }
+
+    if (x < 5) x = 5;
+    if (y < 5) y = 5;
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+}
+
 // ページ背景のコンテキストメニュー（セクション作成）
 function showPageContextMenu(e) {
     // セクションやモーダル上でのクリックは無視
@@ -595,6 +621,7 @@ function showPageContextMenu(e) {
     `;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
     setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
 }
 
@@ -611,6 +638,10 @@ function showStorageViewContextMenu(e, sectionId) {
 
     contextMenu.innerHTML = `
         <div class="context-menu-item" onclick="navigateToParentFolder(${sectionId})">⬅️ 戻る</div>
+        <div class="context-menu-item" onclick="navigateForwardFolder(${sectionId})" ${!canNavigateForward(sectionId) ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>➡️ 進む</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item header">表示モード</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'list')">📋 リスト</div>
@@ -618,11 +649,28 @@ function showStorageViewContextMenu(e, sectionId) {
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'thumbnails')">🖼️ サムネイル</div>
         <div class="context-menu-item" onclick="updateSectionViewMode(${sectionId}, 'previews')">📄 プレビュー</div>
         <div class="context-menu-divider"></div>
+        <div class="context-menu-item header">並び替え</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'name_asc')">🔃 名前 (昇順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'name_desc')">🔃 名前 (降順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'date_desc')">🔃 日付 (新しい順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'date_asc')">🔃 日付 (古い順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'size_desc')">🔃 サイズ (大きい順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'size_asc')">🔃 サイズ (小さい順)</div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="createNewFolderInSection(${sectionId})">📁 新規フォルダ</div>
-        <div class="context-menu-item" onclick="fetchSectionFiles(${sectionId})">🔄 更新</div>
     `;
 
+    // 貼り付けは常に表示（クリップボードが空の場合は無効化）
+    if (clipboardFile) {
+        contextMenu.innerHTML += `<div class="context-menu-item" onclick="pasteFile(${sectionId})">📄 貼り付け</div>`;
+    } else {
+        contextMenu.innerHTML += `<div class="context-menu-item" style="opacity: 0.5; pointer-events: none;">📄 貼り付け</div>`;
+    }
+
+    contextMenu.innerHTML += `<div class="context-menu-item" onclick="fetchSectionFiles(${sectionId})">🔄 更新</div>`;
+
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
     setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
 }
 
@@ -637,16 +685,73 @@ function showSectionHeaderContextMenu(e, sectionId) {
     contextMenu.style.left = `${e.clientX}px`;
     contextMenu.style.top = `${e.clientY}px`;
 
-    contextMenu.innerHTML = `
+    let menuItems = `
         <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
         <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="copySection(${sectionId})">📋 コピー</div>
+        <div class="context-menu-item" onclick="cutSection(${sectionId})">✂️ 切り取り</div>
+    `;
+
+    // 貼り付けはクリップボードにセクションがある場合のみ有効
+    if (clipboardSection) {
+        menuItems += `<div class="context-menu-item" onclick="pasteSection()">📄 貼り付け</div>`;
+    }
+
+    menuItems += `
         <div class="context-menu-divider"></div>
         <div class="context-menu-item delete" onclick="deleteSection(${sectionId})">🗑️ 削除</div>
     `;
 
+    contextMenu.innerHTML = menuItems;
+
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
     setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
 }
+
+// 統合・未定義だったコンテキストメニューのハンドラー
+function showUnifiedStorageContextMenu(e, sectionId, target) {
+    if (target === 'header') {
+        showSectionHeaderContextMenu(e, sectionId);
+    } else if (target === 'background') {
+        showStorageBackgroundContextMenu(e, sectionId);
+    }
+}
+
+function showUnifiedNotepadContextMenu(e, sectionId) {
+    // textareaでの右クリックの場合、基本的にはネイティブメニューを残したいが、最前面/最後面移動も提供したい。
+    // そのため、カスタムのコンテキストメニューを表示するが、ブラウザ標準のコピー＆ペーストはショートカットキー(Ctrl+C/V)を推奨するか、
+    // あるいはテキスト選択時はネイティブを優先するなどの工夫が必要。
+    // ここでは要望通り、最前面・最背面移動を含めたカスタムメニューを表示する。
+
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item header">セクション操作</div>
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="copySection(${sectionId})">📋 セクションをコピー</div>
+        <div class="context-menu-item" onclick="cutSection(${sectionId})">✂️ セクションを切り取り</div>
+        <div class="context-menu-item delete" onclick="deleteSection(${sectionId})">🗑️ セクションを削除</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item header" style="font-weight: normal; font-size: 11px;">※テキストのコピー＆ペーストは<br>キーボード(Ctrl+C / Ctrl+V)等<br>をご利用ください。</div>
+    `;
+
+    document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
+
+    setTimeout(() => document.addEventListener('click', hideContextMenu, { once: true }), 0);
+}
+
 
 // 最前面へ移動
 async function bringSectionToFront(sectionId) {
@@ -654,7 +759,11 @@ async function bringSectionToFront(sectionId) {
     const sectionEl = document.getElementById(`section-${sectionId}`);
     if (sectionEl) {
         sectionEl.style.zIndex = sectionZIndex;
-        // サーバーへの保存は実装していないが、必要ならAPIを追加
+        // Save using API
+        apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ order_index: sectionZIndex })
+        }).catch(err => console.error('Failed to save z-index:', err));
     }
 }
 
@@ -663,6 +772,11 @@ async function sendSectionToBack(sectionId) {
     const sectionEl = document.getElementById(`section-${sectionId}`);
     if (sectionEl) {
         sectionEl.style.zIndex = 1;
+        // Save using API
+        apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ order_index: 1 })
+        }).catch(err => console.error('Failed to save z-index:', err));
     }
 }
 
@@ -1099,9 +1213,31 @@ async function fetchSectionFiles(sectionId) {
         ? JSON.parse(section.content_data || '{}')
         : (section.content_data || {});
     const viewMode = data.view_mode || 'list';
+    const sortOrder = data.sort_order || 'name_asc';
 
     try {
-        const files = await apiCall(`/api/sections/${sectionId}/files`);
+        const files = await apiCall(`/api/sections/${sectionId}/files`, { showAlert: false });
+
+        // Sort files array based on sortOrder
+        files.sort((a, b) => {
+            if (a.is_directory !== b.is_directory) {
+                return a.is_directory ? -1 : 1; // Always folders first
+            }
+            if (sortOrder === 'name_asc') {
+                return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+            } else if (sortOrder === 'name_desc') {
+                return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' });
+            } else if (sortOrder === 'date_desc') {
+                return new Date(b.updated_at) - new Date(a.updated_at);
+            } else if (sortOrder === 'date_asc') {
+                return new Date(a.updated_at) - new Date(b.updated_at);
+            } else if (sortOrder === 'size_desc') {
+                return b.size - a.size;
+            } else if (sortOrder === 'size_asc') {
+                return a.size - b.size;
+            }
+            return 0;
+        });
 
         if (files.length === 0) {
             listEl.innerHTML = '<div style="padding: 10px; color: #999;" oncontextmenu="showEmptyContextMenu(event, ' + sectionId + ')">ファイルがありません</div>';
@@ -1189,6 +1325,17 @@ async function navigateToFolder(sectionId, folderName) {
     const currentPath = data.path || '';
     const newPath = `${currentPath}/${folderName}`;
 
+    // 履歴の更新（新しいフォルダを開くときは進む履歴をクリア）
+    if (!sectionNavigationHistory[sectionId]) {
+        sectionNavigationHistory[sectionId] = { history: [currentPath], currentIndex: 0 };
+    }
+    const navCtx = sectionNavigationHistory[sectionId];
+
+    // 現在のインデックス以降の履歴（進む履歴）を削除し、新しいパスを追加
+    navCtx.history = navCtx.history.slice(0, navCtx.currentIndex + 1);
+    navCtx.history.push(newPath);
+    navCtx.currentIndex++;
+
     // セクションのパスを更新
     await updateSectionStorageConfig(sectionId, data.storage_type || 'local', newPath);
 
@@ -1228,6 +1375,12 @@ async function createNewFolderInSection(sectionId) {
     }
 }
 
+// 「進む」が利用可能かチェック
+function canNavigateForward(sectionId) {
+    const navCtx = sectionNavigationHistory[sectionId];
+    return navCtx && navCtx.currentIndex < navCtx.history.length - 1;
+}
+
 // 親フォルダに戻る
 async function navigateToParentFolder(sectionId) {
     const section = sections.find(s => s.id === sectionId);
@@ -1239,17 +1392,55 @@ async function navigateToParentFolder(sectionId) {
 
     const currentPath = data.path || '';
 
-    // 親フォルダのパスを取得
-    const parentPath = currentPath.split('/').slice(0, -1).join('/');
+    // 履歴管理
+    if (!sectionNavigationHistory[sectionId]) {
+        sectionNavigationHistory[sectionId] = { history: [currentPath], currentIndex: 0 };
+    }
+    const navCtx = sectionNavigationHistory[sectionId];
 
-    // ルートより上には行けない
-    if (!parentPath || parentPath === currentPath) {
-        alert('これ以上戻れません');
-        return;
+    let targetPath;
+
+    // 履歴があればそれを使う、なければパス文字列で推測
+    if (navCtx.currentIndex > 0) {
+        navCtx.currentIndex--;
+        targetPath = navCtx.history[navCtx.currentIndex];
+    } else {
+        targetPath = currentPath.split('/').slice(0, -1).join('/');
+        if (!targetPath || targetPath === currentPath) {
+            alert('これ以上戻れません');
+            return;
+        }
+        // 履歴を強制的に修正
+        navCtx.history.unshift(targetPath);
+        // currentIndexは0のままでOK (unshiftにより新しい要素が0番目になったため、現在位置は1になるべきだが、
+        // 戻る操作中なので現在位置としてはtargetPath(0番目)になる)
+        // いや、既存の履歴の先頭に追加したのであればcurrentIndexは0になった。
     }
 
     // セクションのパスを更新
-    await updateSectionStorageConfig(sectionId, data.storage_type || 'local', parentPath);
+    await updateSectionStorageConfig(sectionId, data.storage_type || 'local', targetPath);
+
+    // ファイルリストを再読み込み
+    await fetchSectionFiles(sectionId);
+}
+
+// 「進む」機能
+async function navigateForwardFolder(sectionId) {
+    if (!canNavigateForward(sectionId)) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const data = typeof section.content_data === 'string'
+        ? JSON.parse(section.content_data || '{}')
+        : (section.content_data || {});
+
+    const navCtx = sectionNavigationHistory[sectionId];
+    navCtx.currentIndex++;
+    const targetPath = navCtx.history[navCtx.currentIndex];
+
+    // セクションのパスを更新
+    await updateSectionStorageConfig(sectionId, data.storage_type || 'local', targetPath);
 
     // ファイルリストを再読み込み
     await fetchSectionFiles(sectionId);
@@ -1270,6 +1461,12 @@ function showFolderContextMenu(e, sectionId, folderName) {
     contextMenu.style.top = `${e.clientY}px`;
 
     let menuItems = `
+        <div class="context-menu-item" onclick="navigateToParentFolder(${sectionId})">⬅️ 戻る</div>
+        <div class="context-menu-item" onclick="navigateForwardFolder(${sectionId})" ${!canNavigateForward(sectionId) ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>➡️ 進む</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="navigateToFolder(${sectionId}, '${escapeHtml(folderName)}')">📂 開く</div>
         <div class="context-menu-item" onclick="copyFile(${sectionId}, '${escapeHtml(folderName)}')">📋 コピー</div>
         <div class="context-menu-item" onclick="cutFile(${sectionId}, '${escapeHtml(folderName)}')">✂️ 切り取り</div>
@@ -1283,6 +1480,7 @@ function showFolderContextMenu(e, sectionId, folderName) {
     contextMenu.innerHTML = menuItems;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
 
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
@@ -1342,6 +1540,28 @@ async function updateSectionViewMode(sectionId, mode) {
     }
 }
 
+async function updateSectionSortOrder(sectionId, sortOrder) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    try {
+        const data = typeof section.content_data === 'string' ? JSON.parse(section.content_data) : (section.content_data || {});
+        data.sort_order = sortOrder;
+
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                content_data: data
+            })
+        });
+
+        section.content_data = data;
+        fetchSectionFiles(sectionId);
+    } catch (error) {
+        console.error('Update sort order error:', error);
+    }
+}
+
 function openUploadDialog(sectionId) {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1373,7 +1593,7 @@ async function uploadFileToStorage(sectionId, file) {
 }
 
 function downloadStorageFile(sectionId, filename) {
-    window.open(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`, '_blank');
+    window.open(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}?download=1`, '_blank');
 }
 
 async function deleteStorageFile(sectionId, filename) {
@@ -1403,22 +1623,19 @@ function showContextMenu(e, sectionId, filename) {
     contextMenu.style.top = `${e.clientY}px`;
 
     contextMenu.innerHTML = `
-        <div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">削除</div>
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item delete" onclick="deleteStorageFileAndHide(${sectionId}, '${escapeHtml(filename)}')">🗑️ 削除</div>
     `;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
 
     // クリックでメニューを閉じるイベントを追加 (一度だけ)
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
     }, 0);
-}
-
-function hideContextMenu() {
-    if (contextMenu) {
-        contextMenu.remove();
-        contextMenu = null;
-    }
 }
 
 async function deleteStorageFileAndHide(sectionId, filename) {
@@ -1466,6 +1683,7 @@ let clipboardSection = null; // セクションコピー用のクリップボー
 
 function showFileContextMenu(e, sectionId, filename) {
     e.preventDefault();
+    e.stopPropagation();
     hideContextMenu();
 
     contextMenu = document.createElement('div');
@@ -1477,6 +1695,12 @@ function showFileContextMenu(e, sectionId, filename) {
     const isZipFile = filename.toLowerCase().endsWith('.zip');
 
     let menuItems = `
+        <div class="context-menu-item" onclick="navigateToParentFolder(${sectionId})">⬅️ 戻る</div>
+        <div class="context-menu-item" onclick="navigateForwardFolder(${sectionId})" ${!canNavigateForward(sectionId) ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>➡️ 進む</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="copyFile(${sectionId}, '${escapeHtml(filename)}')">📋 コピー</div>
         <div class="context-menu-item" onclick="cutFile(${sectionId}, '${escapeHtml(filename)}')">✂️ 切り取り</div>
     `;
@@ -1486,7 +1710,6 @@ function showFileContextMenu(e, sectionId, filename) {
     menuItems += `<div class="context-menu-item" onclick="pasteFile(${sectionId})" ${!clipboardFile ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>📄 貼り付け</div>`;
 
     menuItems += `
-        <div class="context-menu-item" onclick="shareFile('${downloadUrl}', '${escapeHtml(filename)}')">🔗 共有</div>
         <div class="context-menu-item" onclick="downloadStorageFile(${sectionId}, '${escapeHtml(filename)}'); hideContextMenu();">📥 ダウンロード</div>
     `;
 
@@ -1500,6 +1723,7 @@ function showFileContextMenu(e, sectionId, filename) {
     contextMenu.innerHTML = menuItems;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
 
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
@@ -1507,13 +1731,49 @@ function showFileContextMenu(e, sectionId, filename) {
 }
 
 function copyFileLink(url) {
-    navigator.clipboard.writeText(url).then(() => {
-        alert('リンクをコピーしました');
-        hideContextMenu();
-    }).catch(err => {
-        console.error('Copy failed:', err);
-        alert('コピーに失敗しました');
-    });
+    // navigator.clipboard は HTTPS または localhost 環境でのみ動作するため、
+    // ローカルネットワーク（HTTP）からのアクセスのためのフォールバックを実装
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('リンクをコピーしました');
+            hideContextMenu();
+        }).catch(err => {
+            console.error('Copy failed (Clipboard API):', err);
+            fallbackCopyTextToClipboard(url);
+        });
+    } else {
+        fallbackCopyTextToClipboard(url);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    var textArea = document.createElement("textarea");
+    textArea.value = text;
+
+    // 画面外に隠す
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        var successful = document.execCommand('copy');
+        if (successful) {
+            alert('リンクをコピーしました');
+        } else {
+            alert('コピーに失敗しました。ブラウザの権限を確認してください。');
+        }
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert('コピーに失敗しました: ' + err);
+    }
+
+    document.body.removeChild(textArea);
+    hideContextMenu();
 }
 
 // ファイルコピー（クリップボードに保存）
@@ -1618,6 +1878,17 @@ function showStorageBackgroundContextMenu(e, sectionId) {
     contextMenu.style.top = `${e.clientY}px`;
 
     let menuItems = `
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item header">並び替え</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'name_asc')">🔃 名前 (昇順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'name_desc')">🔃 名前 (降順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'date_desc')">🔃 日付 (新しい順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'date_asc')">🔃 日付 (古い順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'size_desc')">🔃 サイズ (大きい順)</div>
+        <div class="context-menu-item" onclick="updateSectionSortOrder(${sectionId}, 'size_asc')">🔃 サイズ (小さい順)</div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="createNewFolderInSection(${sectionId})">📁 新規フォルダ</div>
     `;
 
@@ -1633,6 +1904,7 @@ function showStorageBackgroundContextMenu(e, sectionId) {
     contextMenu.innerHTML = menuItems;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
 
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
@@ -1649,7 +1921,11 @@ function showEmptyContextMenu(e, sectionId) {
     contextMenu.style.left = `${e.clientX}px`;
     contextMenu.style.top = `${e.clientY}px`;
 
-    let menuItems = '';
+    let menuItems = `
+        <div class="context-menu-item" onclick="bringSectionToFront(${sectionId})">⬆️ 最前面へ移動</div>
+        <div class="context-menu-item" onclick="sendSectionToBack(${sectionId})">⬇️ 最背面へ移動</div>
+        <div class="context-menu-divider"></div>
+    `;
 
     // 貼り付けのみ表示
     if (clipboardFile) {
@@ -1661,6 +1937,7 @@ function showEmptyContextMenu(e, sectionId) {
     contextMenu.innerHTML = menuItems;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
 
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
@@ -1805,20 +2082,23 @@ function setupDirectoryBrowserEvents() {
         const storageType = e.target.value;
         const pathInput = document.getElementById('sectionStoragePath');
 
-        if (storageType !== 'local' && !pathInput.value) {
+        if (storageType !== 'local') {
             try {
                 const response = await fetch('/api/system/cloud-storage-paths');
                 const cloudPaths = await response.json();
 
                 if (cloudPaths[storageType]) {
+                    // クラウドストレージのパスが見つかった場合、既存のパスを上書きして自動設定する
                     pathInput.value = cloudPaths[storageType];
                 } else {
+                    // 見つからなかった場合はパスを空にし、案内ダイアログを出す
+                    pathInput.value = '';
                     const storageNames = {
                         'onedrive': 'OneDrive',
                         'googledrive': 'Google Drive',
                         'icloud': 'iCloud Drive'
                     };
-                    alert(`${storageNames[storageType]}が見つかりませんでした。\n手動でパスを入力してください。\n\n例:\n- OneDrive: ~/Library/CloudStorage/OneDrive-...\n- Google Drive: ~/Library/CloudStorage/GoogleDrive-...\n- iCloud: ~/Library/Mobile Documents/com~apple~CloudDocs`);
+                    alert(`PCのローカル環境に ${storageNames[storageType]} の同期フォルダが見つかりませんでした。\n同期アプリがインストールされているか確認するか、手動でパスを入力してください。\n\n[検索先]\n- OneDrive: ~/Library/CloudStorage/...\n- Google Drive: ~/Library/CloudStorage/...\n- iCloud: ~/Library/Mobile Documents/com~apple~CloudDocs`);
                 }
             } catch (error) {
                 console.error('Failed to fetch cloud storage paths:', error);
@@ -2002,8 +2282,77 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
+// ==================== サブスクリプション状態の確認と制御 ====================
+async function loadSubscriptionStatus() {
+    try {
+        // user/status API は要認証なので、初期化前などに呼ばれた場合は無視される実装とする
+        const response = await fetch('/api/user/status');
+        if (response.status === 401 || response.status === 403) return; // 未ログイン
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        // App Lock判定
+        if (data.is_locked) {
+            document.getElementById('modalAppLock').style.display = 'flex';
+            document.getElementById('btnSubscribeNow').href = data.payment_link;
+            return; // ロック状態ならこれ以上何もしない
+        }
+
+        // 設定モーダルの表示内容を更新
+        const container = document.getElementById('subscriptionStatusContainer');
+        if (!container) return;
+
+        let html = '';
+        if (data.subscription_status === 'trialing') {
+            html += `<p style="font-weight: bold; color: #f0ad4e;">無料トライアル中 (残り ${data.trial_days_left} 日)</p>`;
+            html += `<p style="font-size: 13px; color: #666; margin-top: 4px;">トライアル終了日: ${new Date(data.trial_end).toLocaleDateString()}</p>`;
+            html += `<a href="${data.payment_link}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 15px; text-decoration: none;">サブスクリプションを登録する</a>`;
+        } else if (data.subscription_status === 'active') {
+            if (data.cancel_at_period_end) {
+                html += `<p style="font-weight: bold; color: #d9534f;">サブスクリプション退会済み</p>`;
+                html += `<p style="font-size: 14px; margin-top: 4px;">有効期限: ${new Date(data.current_period_end).toLocaleDateString()}</p>`;
+                html += `<p style="font-size: 12px; color: #666; margin-top: 5px;">有効期限までは引き続きご利用いただけます。</p>`;
+            } else {
+                html += `<p style="font-weight: bold; color: #5cb85c;">サブスクリプション有効</p>`;
+                html += `<p style="font-size: 14px; margin-top: 4px;">次回更新日: ${new Date(data.current_period_end).toLocaleDateString()}</p>`;
+                html += `<button onclick="cancelSubscription()" class="btn-secondary" style="margin-top: 15px; border-color: #d9534f; color: #d9534f; width: 100%;">サブスクリプションを退会する</button>`;
+            }
+        } else if (data.subscription_status === 'canceled' || data.subscription_status === 'expired') {
+            html += `<p style="font-weight: bold; color: #d9534f;">利用期間終了</p>`;
+            html += `<a href="${data.payment_link}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 15px; text-decoration: none;">再開する</a>`;
+        }
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Failed to load subscription status:', error);
+    }
+}
+
+async function cancelSubscription() {
+    if (!confirm('本当にサブスクリプションを退会しますか？\\n（次回の更新日までは引き続き利用可能です）')) return;
+
+    try {
+        const response = await fetch('/api/user/cancel-subscription', { method: 'POST' });
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(data.message);
+            loadSubscriptionStatus(); // 表示を最新に更新
+        } else {
+            alert('エラー: ' + data.error);
+        }
+    } catch (e) {
+        alert('通信エラーが発生しました');
+    }
+}
+
 // イベントリスナー
 document.addEventListener('DOMContentLoaded', () => {
+    // 起動直後にサブスクリプション状態を取得し、必要なら画面をロック
+    loadSubscriptionStatus();
+
     // タブ作成
     const btnNewTab = document.getElementById('btnNewTab');
     if (btnNewTab) {
@@ -2031,10 +2380,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnCancelPage').onclick = () => hideModal('modalNewPage');
 
     // 設定
-    // 設定 (テーマ切り替えのみになったため、古い設定モーダルロジックは無効化または条件付き)
+    // 設定を開いた時に最新の情報を表示
     const btnSettings = document.getElementById('btnSettings');
     if (btnSettings) {
         btnSettings.onclick = () => {
+            loadSubscriptionStatus();
             showModal('modalSettings');
         };
     }
@@ -2134,6 +2484,7 @@ function showSectionContextMenu(e, sectionId) {
     contextMenu.innerHTML = menuItems;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
 
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
@@ -2333,7 +2684,7 @@ function cutNotepadText(sectionId) {
 
         // 変更を保存
         updateSectionContent(sectionId, 'notepad', textarea.value);
-});
+    });
 }
 
 function pasteNotepadText(sectionId) {
@@ -2348,7 +2699,7 @@ function pasteNotepadText(sectionId) {
 
         // 変更を保存
         updateSectionContent(sectionId, 'notepad', textarea.value);
-});
+    });
 }
 
 function showNotepadContextMenu(e, sectionId) {
@@ -2368,8 +2719,197 @@ function showNotepadContextMenu(e, sectionId) {
     `;
 
     document.body.appendChild(contextMenu);
+    adjustContextMenuPosition(contextMenu, e);
 
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
     }, 0);
 }
+
+// メモ帳設定モーダル
+function openNotepadSettings(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const data = section.content_data || {};
+
+    // カスタムモーダルを作成
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'notepadSettingsModal';
+    modal.style.display = 'flex';
+
+    modal.innerHTML = `
+        <div class="modal-content compact-modal">
+            <span class="close" onclick="closeNotepadSettings()">&times;</span>
+            <h2>${section.name || 'メモ帳'} - 設定</h2>
+            
+            <div class="settings-grid">
+                <div class="form-group full-width">
+                    <label>タイトル</label>
+                    <input type="text" id="notepadTitle" value="${escapeHtml(section.name || '')}" placeholder="タイトルを入力">
+                </div>
+                
+                <div class="form-group">
+                    <label>背景色</label>
+                    <input type="color" id="notepadBgColor" value="${data.bgColor || '#fffef7'}">
+                </div>
+                
+                <div class="form-group">
+                    <label>文字色</label>
+                    <input type="color" id="notepadFontColor" value="${data.fontColor || '#333333'}">
+                </div>
+                
+                <div class="form-group">
+                    <label>フォント</label>
+                    <select id="notepadFontFamily">
+                        <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif'" ${(data.fontFamily || '').includes('Segoe') ? 'selected' : ''}>Segoe UI</option>
+                        <option value="'Arial', sans-serif'" ${(data.fontFamily || '').includes('Arial') ? 'selected' : ''}>Arial</option>
+                        <option value="'Times New Roman', serif'" ${(data.fontFamily || '').includes('Times') ? 'selected' : ''}>Times New Roman</option>
+                        <option value="'Courier New', monospace'" ${(data.fontFamily || '').includes('Courier') ? 'selected' : ''}>Courier New</option>
+                        <option value="'Georgia', serif'" ${(data.fontFamily || '').includes('Georgia') ? 'selected' : ''}>Georgia</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>フォントサイズ</label>
+                    <select id="notepadFontSize">
+                        <option value="12px" ${data.fontSize === '12px' ? 'selected' : ''}>小</option>
+                        <option value="14px" ${!data.fontSize || data.fontSize === '14px' ? 'selected' : ''}>中</option>
+                        <option value="16px" ${data.fontSize === '16px' ? 'selected' : ''}>大</option>
+                        <option value="18px" ${data.fontSize === '18px' ? 'selected' : ''}>特大</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                <h3 style="font-size: 14px; margin-bottom: 10px; color: #555;">編集機能</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn-secondary" onclick="printNotepad(${sectionId})" style="flex: 1; min-width: 100px;">🖨️ 印刷</button>
+                    <button class="btn-secondary" onclick="copyNotepadText(${sectionId})" style="flex: 1; min-width: 100px;">📋 コピー</button>
+                    <button class="btn-secondary" onclick="cutNotepadText(${sectionId})" style="flex: 1; min-width: 100px;">✂️ 切り取り</button>
+                    <button class="btn-secondary" onclick="pasteNotepadText(${sectionId})" style="flex: 1; min-width: 100px;">📄 貼り付け</button>
+                </div>
+            </div>
+            
+            <div class="modal-actions compact">
+                <button class="btn-primary small" onclick="saveNotepadSettings(${sectionId})">保存</button>
+                <button class="btn-secondary small" onclick="closeNotepadSettings()">キャンセル</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+function closeNotepadSettings() {
+    const modal = document.getElementById('notepadSettingsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function saveNotepadSettings(sectionId) {
+    const title = document.getElementById('notepadTitle').value;
+    const bgColor = document.getElementById('notepadBgColor').value;
+    const fontColor = document.getElementById('notepadFontColor').value;
+    const fontFamily = document.getElementById('notepadFontFamily').value;
+    const fontSize = document.getElementById('notepadFontSize').value;
+
+    try {
+        // タイトルを更新
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: title })
+        });
+
+        // スタイル設定を更新
+        const section = sections.find(s => s.id === sectionId);
+        if (section) {
+            section.content_data = section.content_data || {};
+            section.content_data.bgColor = bgColor;
+            section.content_data.fontColor = fontColor;
+            section.content_data.fontFamily = fontFamily;
+            section.content_data.fontSize = fontSize;
+
+            await apiCall(`/api/sections/${sectionId}/content`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    content_type: 'notepad',
+                    content_data: section.content_data
+                })
+            });
+        }
+
+        closeNotepadSettings();
+        await selectPage(currentPageId);
+    } catch (error) {
+        console.error('Save notepad settings error:', error);
+        alert('設定の保存に失敗しました: ' + error.message);
+    }
+}
+
+// マウスの戻る・進むボタンに対応
+// マウスの進むボタン(Button 4)への対応
+document.addEventListener('mouseup', (e) => {
+    if (e.button === 4) {
+        const sectionEl = e.target.closest('.section');
+        if (sectionEl) {
+            const sectionIdStr = sectionEl.id.replace('section-', '');
+            const sectionId = parseInt(sectionIdStr, 10);
+
+            const section = sections.find(s => s.id === sectionId);
+            if (section && section.content_type === 'storage') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (canNavigateForward(sectionId)) {
+                    navigateForwardFolder(sectionId);
+                }
+            }
+        }
+    }
+});
+
+// --- OSレベルの「戻る」ボタン（マウスサイドボタン、スワイプ、キーボード等）をファイルビュー内でフックする ---
+let hoveredStorageSectionIdForHistory = null;
+
+// マウスがどのストレージセクション上にあるかを常に追跡
+document.addEventListener('mouseover', (e) => {
+    const sectionEl = e.target.closest('.section');
+    if (sectionEl) {
+        const sectionId = parseInt(sectionEl.id.replace('section-', ''), 10);
+        const section = sections.find(s => s.id === sectionId);
+        if (section && section.content_type === 'storage') {
+            hoveredStorageSectionIdForHistory = sectionId;
+            return;
+        }
+    }
+    hoveredStorageSectionIdForHistory = null;
+});
+
+// 初期化時にHistory APIの「トラップ（罠）」を仕掛け、戻る操作をJSでインターセプトできるようにする
+window.addEventListener('load', () => {
+    history.replaceState({ isAppBase: true }, '', location.href);
+    history.pushState({ isAppTrap: true }, '', location.href);
+});
+
+// ブラウザが「戻る/進む」を実行した直後に発生するイベント
+window.addEventListener('popstate', (e) => {
+    // 状態がBaseに戻った = 「戻る」ボタンが押された
+    if (e.state && e.state.isAppBase) {
+        if (hoveredStorageSectionIdForHistory) {
+            // ファイルビューの上にカーソルがある場合は、アプリから離脱させずにフォルダ階層を上に上がる
+            history.pushState({ isAppTrap: true }, '', location.href);
+            navigateToParentFolder(hoveredStorageSectionIdForHistory);
+        } else {
+            // それ以外の場所で戻るが押された場合は、そのまま本来の前のページへ離脱させる
+            history.back();
+        }
+    } else if (e.state && e.state.isAppTrap) {
+        // Baseから「進む」ボタンで戻ってきた場合。正常として何もしない。
+    } else {
+        // 想定外のstateの場合の念のための復元
+        history.replaceState({ isAppBase: true }, '', location.href);
+        history.pushState({ isAppTrap: true }, '', location.href);
+    }
+});
