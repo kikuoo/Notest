@@ -799,9 +799,10 @@ def generate_verification_token():
     return secrets.token_urlsafe(32)
 
 # ヘルパー関数: メール送信
-def send_verification_email(email, token):
+def send_verification_email(email, token, host_url):
     """認証メールを送信"""
-    verification_url = f"http://localhost:5001/verify-email?token={token}"
+    base_url = host_url.rstrip('/')
+    verification_url = f"{base_url}/verify-email?token={token}"
     
     msg = Message(
         subject="【Notest】メールアドレスの確認",
@@ -855,10 +856,9 @@ def request_registration():
             return jsonify({'error': 'メールアドレスを入力してください'}), 400
         
         # メールアドレスの形式チェック
-        from email_validator import validate_email, EmailNotValidError
-        try:
-            validate_email(email)
-        except EmailNotValidError:
+        import re
+        email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+        if not email_pattern.match(email):
             return jsonify({'error': '有効なメールアドレスを入力してください'}), 400
         
         # 既に登録済みかチェック
@@ -883,7 +883,7 @@ def request_registration():
         db.session.commit()
         
         # メール送信
-        send_verification_email(email, token)
+        send_verification_email(email, token, request.host_url)
         
         return jsonify({
             'message': '確認メールを送信しました。メールをご確認ください。',
