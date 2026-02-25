@@ -65,7 +65,7 @@ async function handleLogin(event) {
     const errorEl = document.getElementById('loginError');
 
     try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch('api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -98,7 +98,7 @@ async function handleEmailSubmit(event) {
     submitBtn.textContent = '送信中...';
 
     try {
-        const response = await fetch('/api/auth/request-registration', {
+        const response = await fetch('api/auth/request-registration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email })
@@ -152,7 +152,7 @@ function startTokenPolling(email) {
 // メールトークンを検証
 async function verifyEmailToken(token) {
     try {
-        const response = await fetch(`/api/auth/verify-email/${token}`);
+        const response = await fetch(`api/auth/verify-email/${token}`);
         const data = await response.json();
 
         if (response.ok) {
@@ -193,7 +193,7 @@ async function handleRegistration(event) {
     submitBtn.textContent = '登録中...';
 
     try {
-        const response = await fetch('/api/auth/register', {
+        const response = await fetch('api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -230,7 +230,7 @@ async function handleLogout() {
     }
 
     try {
-        const response = await fetch('/api/auth/logout', {
+        const response = await fetch('api/auth/logout', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -269,7 +269,7 @@ async function initUserMenu() {
     if (!container) return;
 
     try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('api/auth/me');
 
         if (response.ok) {
             // ログイン済み
