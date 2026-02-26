@@ -16,7 +16,7 @@ async function uploadSectionImage(sectionId, file) {
         const formData = new FormData();
         formData.append('image', file);
 
-        const response = await fetch(`/api/sections/${sectionId}/image`, {
+        const response = await fetch(`api/sections/${sectionId}/image`, {
             method: 'POST',
             body: formData
         });

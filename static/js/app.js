@@ -469,7 +469,7 @@ async function createNewSection(sectionType = 'text', x = null, y = null) {
                     // アップロード
                     const formData = new FormData();
                     formData.append('file', file);
-                    const response = await fetch('/api/upload', {
+                    const response = await fetch('api/upload', {
                         method: 'POST',
                         body: formData
                     });
@@ -1043,7 +1043,7 @@ async function uploadImageToSection(file, sectionId) {
     formData.append('file', file);
 
     try {
-        const response = await fetch('/api/upload', {
+        const response = await fetch('api/upload', {
             method: 'POST',
             body: formData
         });
@@ -1167,7 +1167,7 @@ async function uploadFileToSection(file, sectionId) {
     formData.append('file', file);
 
     try {
-        const response = await fetch('/api/upload', {
+        const response = await fetch('api/upload', {
             method: 'POST',
             body: formData
         });
@@ -1578,7 +1578,7 @@ async function uploadFileToStorage(sectionId, file) {
     formData.append('file', file);
 
     try {
-        const response = await fetch(`/api/sections/${sectionId}/files`, {
+        const response = await fetch(`api/sections/${sectionId}/files`, {
             method: 'POST',
             body: formData
         });
@@ -1660,7 +1660,7 @@ function handleFileDragStart(e, sectionId, filename) {
 
 async function moveFileBetweenSections(sourceSectionId, targetSectionId, filename) {
     try {
-        const response = await fetch(`/api/sections/${sourceSectionId}/files/${encodeURIComponent(filename)}/move`, {
+        const response = await fetch(`api/sections/${sourceSectionId}/files/${encodeURIComponent(filename)}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_section_id: targetSectionId })
@@ -1795,7 +1795,7 @@ async function pasteFile(targetSectionId) {
     hideContextMenu();
 
     try {
-        const response = await fetch(`/api/sections/${clipboardFile.sectionId}/files/${encodeURIComponent(clipboardFile.filename)}/copy`, {
+        const response = await fetch(`api/sections/${clipboardFile.sectionId}/files/${encodeURIComponent(clipboardFile.filename)}/copy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_section_id: targetSectionId })
@@ -1847,7 +1847,7 @@ async function extractZipFile(sectionId, filename) {
     if (!confirm(`${filename} を解凍しますか？`)) return;
 
     try {
-        const response = await fetch(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}/extract`, {
+        const response = await fetch(`api/sections/${sectionId}/files/${encodeURIComponent(filename)}/extract`, {
             method: 'POST'
         });
 
@@ -2084,7 +2084,7 @@ function setupDirectoryBrowserEvents() {
 
         if (storageType !== 'local') {
             try {
-                const response = await fetch('/api/system/cloud-storage-paths');
+                const response = await fetch('api/system/cloud-storage-paths');
                 const cloudPaths = await response.json();
 
                 if (cloudPaths[storageType]) {
@@ -2286,7 +2286,7 @@ function formatFileSize(bytes) {
 async function loadSubscriptionStatus() {
     try {
         // user/status API は要認証なので、初期化前などに呼ばれた場合は無視される実装とする
-        const response = await fetch('/api/user/status');
+        const response = await fetch('api/user/status');
         if (response.status === 401 || response.status === 403) return; // 未ログイン
         if (!response.ok) return;
 
@@ -2334,7 +2334,7 @@ async function cancelSubscription() {
     if (!confirm('本当にサブスクリプションを退会しますか？\\n（次回の更新日までは引き続き利用可能です）')) return;
 
     try {
-        const response = await fetch('/api/user/cancel-subscription', { method: 'POST' });
+        const response = await fetch('api/user/cancel-subscription', { method: 'POST' });
         const data = await response.json();
 
         if (response.ok) {
