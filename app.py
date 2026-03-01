@@ -892,10 +892,12 @@ def request_registration():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Registration request error: {e}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': 'メール送信に失敗しました'}), 500
+        tb = traceback.format_exc()
+        print(f"Registration request error: {e}")
+        print(tb)
+        # デバッグ用：実際のエラーを返す（後で元に戻すこと）
+        return jsonify({'error': f'デバッグ: {str(e)}', 'detail': tb}), 500
 
 # 2. メール認証
 @app.route('/api/auth/verify-email/<token>', methods=['GET'])
