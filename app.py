@@ -149,10 +149,12 @@ def legal():
 def verify_email_page():
     """メール認証リンクからのリダイレクト"""
     token = request.args.get('token')
+    # APP_BASE_URLが設定されている場合はそれを使用（サブフォルダ運用時用）
+    app_base_url = os.environ.get('APP_BASE_URL', '').rstrip('/')
+    root_url = app_base_url if app_base_url else ''
     if token:
-        # トークンをクエリパラメータとして渡してランディングページにリダイレクト
-        return redirect(f'/?token={token}')
-    return redirect('/')
+        return redirect(f'{root_url}/?token={token}')
+    return redirect(f'{root_url}/')
 
 # タブ関連のAPI
 @app.route('/api/tabs', methods=['GET'])
