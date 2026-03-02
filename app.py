@@ -801,8 +801,11 @@ def generate_verification_token():
 # ヘルパー関数: メール送信
 def send_verification_email(email, token, host_url):
     """認証メールを送信"""
-    base_url = host_url.rstrip('/')
-    verification_url = f"{base_url}/verify-email?token={token}"
+    # APP_BASE_URLが設定されている場合はそれを優先（サブフォルダ運用時用）
+    app_base_url = os.environ.get('APP_BASE_URL', '').rstrip('/')
+    if not app_base_url:
+        app_base_url = host_url.rstrip('/')
+    verification_url = f"{app_base_url}/verify-email?token={token}"
     
     msg = Message(
         subject="【Notest】メールアドレスの確認",
