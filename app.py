@@ -152,9 +152,17 @@ def verify_email_page():
     # APP_BASE_URLが設定されている場合はそれを使用（サブフォルダ運用時用）
     app_base_url = os.environ.get('APP_BASE_URL', '').rstrip('/')
     root_url = app_base_url if app_base_url else ''
-    if token:
-        return redirect(f'{root_url}/?token={token}')
-    return redirect(f'{root_url}/')
+    target_url = f'{root_url}/?token={token}' if token else f'{root_url}/'
+    # CGIモードではredirect()が正常に機能しない場合があるため、HTMLで直接リダイレクト
+    return f'''<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url={target_url}">
+  <script>window.location.replace("{target_url}");</script>
+</head>
+<body>リダイレクト中...</body>
+</html>'''
 
 # タブ関連のAPI
 @app.route('/api/tabs', methods=['GET'])
