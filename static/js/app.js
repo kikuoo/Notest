@@ -11,6 +11,10 @@ let sectionZIndex = 1000;
 // 履歴の構造: { [sectionId]: { history: string[], currentIndex: number } }
 let sectionNavigationHistory = {};
 
+// ローカルファイルシステム用: セクションIDとディレクトリハンドルのマッピング
+const localDirHandles = {}; // { sectionId: FileSystemDirectoryHandle (root) }
+const localDirSubHandles = {}; // { sectionId: FileSystemDirectoryHandle (current) }
+
 // API呼び出し関数
 async function apiCall(url, options = {}) {
     const showAlert = options.showAlert !== false;
@@ -386,13 +390,15 @@ function renderSectionContent(section) {
                 </div>
             `;
         case 'storage':
-            // ファイル一覧を非同期で取得して表示するためのコンテナを返す
+            // ローカルフォルダが既に選択済みの場合はそのまま読み込む
             setTimeout(() => fetchSectionFiles(section.id), 0);
             return `
                 <div class="file-browser" id="file-browser-${section.id}">
-                    <div class="file-list" id="file-list-${section.id}" oncontextmenu="showUnifiedStorageContextMenu(event, ${section.id}, 'background')">
-                        <div style="padding: 10px; color: #666;">読み込み中...</div>
+                    <div class="local-folder-picker" id="picker-${section.id}" style="padding:12px;">
+                        <button class="btn-primary" onclick="pickLocalFolder(${section.id})" id="btn-pick-${section.id}">📂 フォルダを選択</button>
+                        <span id="picker-label-${section.id}" style="margin-left:8px;font-size:12px;color:#666;"></span>
                     </div>
+                    <div class="file-list" id="file-list-${section.id}" oncontextmenu="showUnifiedStorageContextMenu(event, ${section.id}, 'background')"></div>
                 </div>
                 `;
         case 'notepad':
@@ -1206,6 +1212,27 @@ async function uploadFileToSection(file, sectionId) {
 }
 
 // ストレージ（フォルダ）機能
+// ローカルフォルダを選択する
+async function pickLocalFolder(sectionId) {
+    if (!('showDirectoryPicker' in window)) {
+        alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
+        return;
+    }
+    try {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        localDirHandles[sectionId] = dirHandle;
+        localDirSubHandles[sectionId] = dirHandle;
+        // ナビゲーション履歴をリセット
+        sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
+        // ラベル更新
+        const label = document.getElementById(`picker-label-${sectionId}`);
+        if (label) label.textContent = dirHandle.name;
+        await fetchSectionFiles(sectionId);
+    } catch (e) {
+        if (e.name !== 'AbortError') alert('フォルダの選択に失敗しました: ' + e.message);
+    }
+}
+
 async function fetchSectionFiles(sectionId) {
     const listEl = document.getElementById(`file-list-${sectionId}`);
     if (!listEl) return;
@@ -1217,103 +1244,107 @@ async function fetchSectionFiles(sectionId) {
         ? JSON.parse(section.content_data || '{}')
         : (section.content_data || {});
     const viewMode = data.view_mode || 'list';
-    const sortOrder = data.sort_order || 'name_asc';
 
-    try {
-        const files = await apiCall(`/api/sections/${sectionId}/files`, { showAlert: false });
+    // ローカルディレクトリハンドルがある場合はFile System Access APIを使う
+    const currentHandle = localDirSubHandles[sectionId];
+    if (currentHandle) {
+        await fetchLocalFiles(sectionId, currentHandle, viewMode);
+        return;
+    }
 
-        // Sort files array based on sortOrder
-        files.sort((a, b) => {
-            if (a.is_directory !== b.is_directory) {
-                return a.is_directory ? -1 : 1; // Always folders first
-            }
-            if (sortOrder === 'name_asc') {
-                return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-            } else if (sortOrder === 'name_desc') {
-                return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' });
-            } else if (sortOrder === 'date_desc') {
-                return new Date(b.updated_at) - new Date(a.updated_at);
-            } else if (sortOrder === 'date_asc') {
-                return new Date(a.updated_at) - new Date(b.updated_at);
-            } else if (sortOrder === 'size_desc') {
-                return b.size - a.size;
-            } else if (sortOrder === 'size_asc') {
-                return a.size - b.size;
-            }
-            return 0;
-        });
+    // ハンドルがない場合はフォルダ選択を促す
+    listEl.innerHTML = `<div style="padding:12px;color:#999;">「フォルダを選択」ボタンを押してローカルフォルダを開いてください。</div>`;
+}
 
-        if (files.length === 0) {
-            listEl.innerHTML = '<div style="padding: 10px; color: #999;" oncontextmenu="showEmptyContextMenu(event, ' + sectionId + ')">ファイルがありません</div>';
-            return;
-        }
+async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
+    const listEl = document.getElementById(`file-list-${sectionId}`);
+    if (!listEl) return;
 
-        // ビューモードに応じたクラスを付与
-        listEl.className = 'file-list ' + (viewMode === 'list' ? '' : viewMode);
-        if (viewMode === 'list') listEl.classList.remove('grid', 'thumbnails', 'previews');
-        else if (viewMode === 'grid') listEl.classList.add('grid');
+    const entries = [];
+    for await (const [name, handle] of dirHandle.entries()) {
+        if (name.startsWith('.')) continue;
+        entries.push({ name, kind: handle.kind, handle });
+    }
 
-        // コンテキストメニューを追加 (ストレージビュー切り替え)
-        listEl.oncontextmenu = (e) => showStorageViewContextMenu(e, sectionId);
+    // フォルダ優先・名前順に並び替え
+    entries.sort((a, b) => {
+        if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
-        listEl.innerHTML = files.map(item => {
-            // フォルダの場合
-            if (item.is_directory) {
-                return `
-                    <div class="file-item folder-item" 
-                         data-section-id="${sectionId}"
-                         data-filename="${escapeHtml(item.name)}"
-                         data-is-folder="true"
-                         title="${escapeHtml(item.name)}"
-                         ondblclick="navigateToFolder(${sectionId}, '${escapeHtml(item.name)}')"
-                         oncontextmenu="showFolderContextMenu(event, ${sectionId}, '${escapeHtml(item.name)}')">
-                        <div class="file-icon">📁</div>
-                        <div class="file-info">
-                            <div class="file-name">${escapeHtml(item.name)}</div>
-                            <div class="file-meta">フォルダ - ${new Date(item.updated_at).toLocaleString()}</div>
-                        </div>
-                    </div>
-                `;
-            }
+    listEl.className = 'file-list' + (viewMode !== 'list' ? ' ' + viewMode : '');
+    listEl.oncontextmenu = (e) => showStorageViewContextMenu(e, sectionId);
 
-            // ファイルの場合
-            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.name);
-            const downloadUrl = `/api/sections/${sectionId}/files/${encodeURIComponent(item.name)}`;
+    if (entries.length === 0) {
+        listEl.innerHTML = '<div style="padding:10px;color:#999;">ファイルがありません</div>';
+        return;
+    }
 
-            let icon = '📄';
-            if (isImage) icon = '🖼';
-            else if (item.name.toLowerCase().endsWith('.pdf')) icon = '📕';
-            else if (item.name.toLowerCase().endsWith('.zip')) icon = '📦';
-
-            let previewHtml = '';
-            if (viewMode === 'thumbnails' && isImage) {
-                previewHtml = `<img src="${downloadUrl}" class="file-thumbnail" loading="lazy">`;
-            } else if (viewMode === 'previews' && isImage) {
-                previewHtml = `<div class="file-preview-content"><img src="${downloadUrl}" loading="lazy"></div>`;
-            }
-
+    listEl.innerHTML = entries.map(entry => {
+        if (entry.kind === 'directory') {
             return `
-                <div class="file-item" 
-                     draggable="true"
-                     data-section-id="${sectionId}"
-                     data-filename="${escapeHtml(item.name)}"
-                     title="${escapeHtml(item.name)}"
-                     onclick="showFilePreview(${sectionId}, '${escapeHtml(item.name)}')"
-                     ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(item.name)}')"
-                     oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(item.name)}')"
-                     ondragstart="handleFileDragStart(event, ${sectionId}, '${escapeHtml(item.name)}')">
-                    ${previewHtml}
-                    <div class="file-icon">${isImage && (viewMode === 'thumbnails' || viewMode === 'previews') ? '' : icon}</div>
-                     <div class="file-info">
-                        <div class="file-name">${escapeHtml(item.name)}</div>
-                        <div class="file-meta">${formatFileSize(item.size)} - ${new Date(item.updated_at).toLocaleString()}</div>
+                <div class="file-item folder-item"
+                     title="${escapeHtml(entry.name)}"
+                     ondblclick="navigateToLocalFolder(${sectionId}, '${escapeHtml(entry.name)}')">
+                    <div class="file-icon">📁</div>
+                    <div class="file-info">
+                        <div class="file-name">${escapeHtml(entry.name)}</div>
+                        <div class="file-meta">フォルダ</div>
                     </div>
+                </div>`;
+        }
+        const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(entry.name);
+        const isPdf = /\.pdf$/i.test(entry.name);
+        const isZip = /\.(zip|rar|7z)$/i.test(entry.name);
+        let icon = isImage ? '🖼' : isPdf ? '📕' : isZip ? '📦' : '📄';
+        return `
+            <div class="file-item"
+                 title="${escapeHtml(entry.name)}"
+                 ondblclick="openLocalFile(${sectionId}, '${escapeHtml(entry.name)}')">
+                <div class="file-icon">${icon}</div>
+                <div class="file-info">
+                    <div class="file-name">${escapeHtml(entry.name)}</div>
                 </div>
-            `;
-        }).join('');
+            </div>`;
+    }).join('');
+}
 
-    } catch (error) {
-        listEl.innerHTML = `<div style="padding: 10px; color: red;">エラー: ${escapeHtml(error.message)}</div>`;
+// ローカルフォルダに移動
+async function navigateToLocalFolder(sectionId, folderName) {
+    const currentHandle = localDirSubHandles[sectionId];
+    if (!currentHandle) return;
+    try {
+        const subHandle = await currentHandle.getDirectoryHandle(folderName);
+        localDirSubHandles[sectionId] = subHandle;
+
+        // 履歴に追記
+        const navCtx = sectionNavigationHistory[sectionId];
+        if (navCtx) {
+            navCtx.handles = navCtx.handles.slice(0, navCtx.currentIndex + 1);
+            navCtx.handles.push(subHandle);
+            navCtx.history = navCtx.history.slice(0, navCtx.currentIndex + 1);
+            navCtx.history.push(folderName);
+            navCtx.currentIndex++;
+        }
+        await fetchSectionFiles(sectionId);
+    } catch (e) {
+        alert('フォルダを開けませんでした: ' + e.message);
+    }
+}
+
+// ローカルファイルを開く
+async function openLocalFile(sectionId, fileName) {
+    const currentHandle = localDirSubHandles[sectionId];
+    if (!currentHandle) return;
+    try {
+        const fileHandle = await currentHandle.getFileHandle(fileName);
+        const file = await fileHandle.getFile();
+        const url = URL.createObjectURL(file);
+        window.open(url, '_blank');
+        // 少し後にURLを解放
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+        alert('ファイルを開けませんでした: ' + e.message);
     }
 }
 
@@ -1387,66 +1418,24 @@ function canNavigateForward(sectionId) {
 
 // 親フォルダに戻る
 async function navigateToParentFolder(sectionId) {
-    const section = sections.find(s => s.id === sectionId);
-    if (!section) return;
-
-    const data = typeof section.content_data === 'string'
-        ? JSON.parse(section.content_data || '{}')
-        : (section.content_data || {});
-
-    const currentPath = data.path || '';
-
-    // 履歴管理
-    if (!sectionNavigationHistory[sectionId]) {
-        sectionNavigationHistory[sectionId] = { history: [currentPath], currentIndex: 0 };
-    }
     const navCtx = sectionNavigationHistory[sectionId];
-
-    let targetPath;
-
-    // 履歴があればそれを使う、なければパス文字列で推測
-    if (navCtx.currentIndex > 0) {
-        navCtx.currentIndex--;
-        targetPath = navCtx.history[navCtx.currentIndex];
-    } else {
-        targetPath = currentPath.split('/').slice(0, -1).join('/');
-        if (!targetPath || targetPath === currentPath) {
-            alert('これ以上戻れません');
-            return;
-        }
-        // 履歴を強制的に修正
-        navCtx.history.unshift(targetPath);
-        // currentIndexは0のままでOK (unshiftにより新しい要素が0番目になったため、現在位置は1になるべきだが、
-        // 戻る操作中なので現在位置としてはtargetPath(0番目)になる)
-        // いや、既存の履歴の先頭に追加したのであればcurrentIndexは0になった。
+    if (!navCtx || navCtx.currentIndex <= 0) {
+        alert('これ以上戻れません');
+        return;
     }
-
-    // セクションのパスを更新
-    await updateSectionStorageConfig(sectionId, data.storage_type || 'local', targetPath);
-
-    // ファイルリストを再読み込み
+    navCtx.currentIndex--;
+    const handle = navCtx.handles[navCtx.currentIndex];
+    localDirSubHandles[sectionId] = handle;
     await fetchSectionFiles(sectionId);
 }
 
 // 「進む」機能
 async function navigateForwardFolder(sectionId) {
     if (!canNavigateForward(sectionId)) return;
-
-    const section = sections.find(s => s.id === sectionId);
-    if (!section) return;
-
-    const data = typeof section.content_data === 'string'
-        ? JSON.parse(section.content_data || '{}')
-        : (section.content_data || {});
-
     const navCtx = sectionNavigationHistory[sectionId];
     navCtx.currentIndex++;
-    const targetPath = navCtx.history[navCtx.currentIndex];
-
-    // セクションのパスを更新
-    await updateSectionStorageConfig(sectionId, data.storage_type || 'local', targetPath);
-
-    // ファイルリストを再読み込み
+    const handle = navCtx.handles[navCtx.currentIndex];
+    localDirSubHandles[sectionId] = handle;
     await fetchSectionFiles(sectionId);
 }
 
