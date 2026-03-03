@@ -718,18 +718,30 @@ def create_storage_location():
 def list_directories():
     path = request.args.get('path')
     
+    # ベースパス（ホームディレクトリ）を取得
+    home_dir = os.path.expanduser('~')
+    
     # パスが指定されていない場合はホームディレクトリ
     if not path:
-        path = os.path.expanduser('~')
+        path = home_dir
     else:
         path = os.path.expanduser(path)
+    
+    # パスを正規化
+    path = os.path.abspath(path)
+    
+    # ホームディレクトリより上への移動を禁止
+    if not path.startswith(home_dir):
+        path = home_dir
     
     if not os.path.exists(path) or not os.path.isdir(path):
         return jsonify({'error': 'Invalid path'}), 400
         
     try:
-        # 親ディレクトリ
-        parent_path = os.path.dirname(os.path.abspath(path))
+        # 親ディレクトリ（ホームより上には行かせない）
+        parent_path = os.path.dirname(path)
+        if not parent_path.startswith(home_dir):
+            parent_path = home_dir
         
         # サブディレクトリ一覧
         directories = []
@@ -741,10 +753,12 @@ def list_directories():
         directories.sort()
         
         return jsonify({
-            'current_path': os.path.abspath(path),
+            'current_path': path,
             'parent_path': parent_path,
             'directories': directories
         })
+    except PermissionError:
+        return jsonify({'error': 'このフォルダへのアクセス権限がありません'}), 403
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
