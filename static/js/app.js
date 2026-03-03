@@ -1970,12 +1970,27 @@ function configureSection(sectionId) {
 
 
 
-// フォルダ参照ボタン
-function openDirectoryBrowser() {
-    const currentPathInput = document.getElementById('sectionStoragePath').value;
-    // 現在のパスがあればそこから、なければホームディレクトリから開始
-    loadDirectory(currentPathInput || '');
-    showModal('modalDirectoryBrowser');
+// フォルダ参照ボタン - ローカルPCのフォルダを選択
+async function openDirectoryBrowser() {
+    if (!('showDirectoryPicker' in window)) {
+        alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
+        return;
+    }
+    try {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        // 選択されたハンドルのパスをインプットに設定（表示用）
+        const pathInput = document.getElementById('sectionStoragePath');
+        if (pathInput) pathInput.value = dirHandle.name;
+        // editingSectionIdから現在のセクションIDを取得
+        const sectionId = parseInt(document.getElementById('editingSectionId')?.value);
+        if (sectionId) {
+            localDirHandles[sectionId] = dirHandle;
+            localDirSubHandles[sectionId] = dirHandle;
+            sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
+        }
+    } catch (e) {
+        if (e.name !== 'AbortError') alert('フォルダの選択に失敗しました: ' + e.message);
+    }
 }
 
 async function loadDirectory(path) {
