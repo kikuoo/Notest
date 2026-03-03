@@ -75,7 +75,7 @@ async function handleLogin(event) {
 
         if (response.ok) {
             hideLoginModal();
-            window.location.href = '/app'; // アプリページにリダイレクト
+            window.location.href = '/note/app'; // アプリページにリダイレクト
         } else {
             errorEl.textContent = data.error || 'ログインに失敗しました';
             errorEl.style.display = 'block';
@@ -207,7 +207,7 @@ async function handleRegistration(event) {
 
         if (response.ok) {
             hideRegistrationModal();
-            window.location.href = '/app'; // アプリページにリダイレクト
+            window.location.href = '/note/app'; // アプリページにリダイレクト
         } else {
             errorEl.textContent = data.error || '登録に失敗しました';
             errorEl.style.display = 'block';
@@ -238,11 +238,11 @@ async function handleLogout() {
         });
 
         // ログアウト成功またはエラーに関わらず、ランディングページにリダイレクト
-        window.location.href = '/';
+        window.location.href = '/note/';
     } catch (error) {
         console.error('Logout error:', error);
         // エラーが発生してもランディングページにリダイレクト
-        window.location.href = '/';
+        window.location.href = '/note/';
     }
 }
 
