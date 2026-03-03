@@ -14,6 +14,10 @@ let sectionNavigationHistory = {};
 // API呼び出し関数
 async function apiCall(url, options = {}) {
     const showAlert = options.showAlert !== false;
+    // /note/ サブフォルダ対応: /api/ で始まるURLに /note プレフィックスを付ける
+    if (url.startsWith('/api/')) {
+        url = '/note' + url;
+    }
     try {
         console.log(`API Call: ${url}`, options);
         const response = await fetch(url, {
