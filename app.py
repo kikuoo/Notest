@@ -25,7 +25,6 @@ Config.init_app(app)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = 'landing'  # 未ログイン時はランディングページへリダイレクト
 login_manager.login_message = None  # ログインメッセージを表示しない
 mail = Mail(app)
 
@@ -120,6 +119,12 @@ class StorageLocation(db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    """未ログイン時のリダイレクト（サブフォルダ対応）"""
+    app_base_url = os.environ.get('APP_BASE_URL', '').rstrip('/')
+    return redirect(f'{app_base_url}/')
 
 @app.route('/')
 def landing():
