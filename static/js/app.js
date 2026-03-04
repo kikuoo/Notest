@@ -1458,33 +1458,28 @@ async function navigateToFolder(sectionId, folderName) {
 
 // セクション内に新規フォルダを作成
 async function createNewFolderInSection(sectionId) {
-    const section = sections.find(s => s.id === sectionId);
-    if (!section) return;
+    const currentHandle = localDirSubHandles[sectionId];
 
-    const data = typeof section.content_data === 'string'
-        ? JSON.parse(section.content_data || '{}')
-        : (section.content_data || {});
-
-    const currentPath = data.path || '';
-
-    // フォルダ名を入力
     const folderName = prompt('新しいフォルダ名を入力してください:');
     if (!folderName || !folderName.trim()) return;
 
-    try {
-        // APIを使ってフォルダを作成
-        await apiCall('/api/system/directories', {
-            method: 'POST',
-            body: JSON.stringify({
-                path: currentPath,
-                name: folderName.trim()
-            })
-        });
-
-        // ファイルリストを再読み込み
-        await fetchSectionFiles(sectionId);
-    } catch (error) {
-        alert('フォルダの作成に失敗しました: ' + error.message);
+    if (currentHandle) {
+        // ローカルファイルシステム：書き込み権限を取得してフォルダを作成
+        try {
+            // 書き込み権限を要求
+            let perm = await currentHandle.queryPermission({ mode: 'readwrite' });
+            if (perm === 'prompt') perm = await currentHandle.requestPermission({ mode: 'readwrite' });
+            if (perm !== 'granted') {
+                alert('フォルダへの書き込み権限がありません。');
+                return;
+            }
+            await currentHandle.getDirectoryHandle(folderName.trim(), { create: true });
+            await fetchSectionFiles(sectionId);
+        } catch (error) {
+            alert('フォルダの作成に失敗しました: ' + error.message);
+        }
+    } else {
+        alert('フォルダが選択されていません。先にフォルダを選択してください。');
     }
 }
 
