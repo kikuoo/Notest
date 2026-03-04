@@ -442,10 +442,6 @@ function renderSectionContent(section) {
             setTimeout(() => fetchSectionFiles(section.id), 0);
             return `
                 <div class="file-browser" id="file-browser-${section.id}">
-                    <div class="local-folder-picker" id="picker-${section.id}" style="padding:12px;display:none;">
-                        <button class="btn-primary" onclick="pickLocalFolder(${section.id})" id="btn-pick-${section.id}">📂 フォルダを選択</button>
-                        <span id="picker-label-${section.id}" style="margin-left:8px;font-size:12px;color:#666;"></span>
-                    </div>
                     <div class="file-list" id="file-list-${section.id}" oncontextmenu="showUnifiedStorageContextMenu(event, ${section.id}, 'background')"></div>
                 </div>
                 `;
@@ -1324,10 +1320,8 @@ async function fetchSectionFiles(sectionId) {
         return;
     }
 
-    // ハンドルがない場合はフォルダ選択ボタンを表示
-    const pickerEl = document.getElementById(`picker-${sectionId}`);
-    if (pickerEl) pickerEl.style.display = '';
-    listEl.innerHTML = `<div style="padding:12px;color:#999;">「フォルダを選択」ボタンを押してローカルフォルダを開いてください。</div>`;
+    // ハンドルがない場合は設定ボタンからフォルダを選択するようガイドを表示
+    listEl.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">⚙️ 設定ボタンから「フォルダを選択」してください。</div>`;
 }
 
 async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
