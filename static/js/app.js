@@ -15,6 +15,54 @@ let sectionNavigationHistory = {};
 const localDirHandles = {}; // { sectionId: FileSystemDirectoryHandle (root) }
 const localDirSubHandles = {}; // { sectionId: FileSystemDirectoryHandle (current) }
 
+// IndexedDBへのハンドル保存（リロード後も持続するため）
+const FS_DB_NAME = 'notest-fs-handles';
+const FS_DB_VERSION = 1;
+const FS_STORE = 'handles';
+
+function openFsDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(FS_DB_NAME, FS_DB_VERSION);
+        req.onupgradeneeded = e => e.target.result.createObjectStore(FS_STORE);
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e.target.error);
+    });
+}
+
+async function saveFsHandle(sectionId, handle) {
+    const db = await openFsDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(FS_STORE, 'readwrite');
+        tx.objectStore(FS_STORE).put(handle, String(sectionId));
+        tx.oncomplete = resolve;
+        tx.onerror = e => reject(e.target.error);
+    });
+}
+
+async function loadAllFsHandles() {
+    const db = await openFsDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(FS_STORE, 'readonly');
+        const keys = [], values = [];
+        tx.objectStore(FS_STORE).openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (cursor) { keys.push(cursor.key); values.push(cursor.value); cursor.continue(); }
+            else resolve(keys.map((k, i) => ({ sectionId: parseInt(k), handle: values[i] })));
+        };
+        tx.onerror = e => reject(e.target.error);
+    });
+}
+
+async function deleteFsHandle(sectionId) {
+    const db = await openFsDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(FS_STORE, 'readwrite');
+        tx.objectStore(FS_STORE).delete(String(sectionId));
+        tx.oncomplete = resolve;
+        tx.onerror = e => reject(e.target.error);
+    });
+}
+
 // API呼び出し関数
 async function apiCall(url, options = {}) {
     const showAlert = options.showAlert !== false;
@@ -797,7 +845,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 }
 
 // ページ読み込み完了時の処理
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     loadTabs();
 
     // テーマ適用
@@ -820,6 +868,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageContent = document.getElementById('pageContent');
     if (pageContent) {
         pageContent.addEventListener('contextmenu', showPageContextMenu);
+    }
+
+    // IndexedDBから保存済みローカルフォルダハンドルを復元
+    try {
+        const savedHandles = await loadAllFsHandles();
+        for (const { sectionId, handle } of savedHandles) {
+            try {
+                // パーミッションを確認（必要なら再許可ダイアログ表示）
+                let perm = await handle.queryPermission({ mode: 'read' });
+                if (perm === 'prompt') {
+                    perm = await handle.requestPermission({ mode: 'read' });
+                }
+                if (perm === 'granted') {
+                    localDirHandles[sectionId] = handle;
+                    localDirSubHandles[sectionId] = handle;
+                    sectionNavigationHistory[sectionId] = { history: [handle.name], currentIndex: 0, handles: [handle] };
+                }
+            } catch (e) {
+                console.warn(`Section ${sectionId} handle restore failed:`, e);
+                await deleteFsHandle(sectionId);
+            }
+        }
+    } catch (e) {
+        console.warn('IndexedDB handle restore failed:', e);
     }
 });
 
@@ -1222,9 +1294,9 @@ async function pickLocalFolder(sectionId) {
         const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
         localDirHandles[sectionId] = dirHandle;
         localDirSubHandles[sectionId] = dirHandle;
-        // ナビゲーション履歴をリセット
         sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
-        // ラベル更新
+        // IndexedDBに保存（永続化）
+        await saveFsHandle(sectionId, dirHandle);
         const label = document.getElementById(`picker-label-${sectionId}`);
         if (label) label.textContent = dirHandle.name;
         await fetchSectionFiles(sectionId);
