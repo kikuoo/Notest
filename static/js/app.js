@@ -1634,21 +1634,52 @@ function openUploadDialog(sectionId) {
 }
 
 async function uploadFileToStorage(sectionId, file) {
-    const formData = new FormData();
-    formData.append('file', file);
+    const currentHandle = localDirSubHandles[sectionId];
 
-    try {
-        const response = await fetch(`/note/api/sections/${sectionId}/files`, {
-            method: 'POST',
-            body: formData
-        });
+    if (currentHandle) {
+        // ローカルファイルシステムへの書き込み
+        try {
+            // 書き込み権限を確認
+            let perm = await currentHandle.queryPermission({ mode: 'readwrite' });
+            if (perm === 'prompt') perm = await currentHandle.requestPermission({ mode: 'readwrite' });
+            if (perm !== 'granted') {
+                alert('フォルダへの書き込み権限がありません。');
+                return;
+            }
 
-        if (!response.ok) throw new Error('Upload failed');
+            // 同名ファイルが存在する場合は確認
+            let filename = file.name;
+            try {
+                await currentHandle.getFileHandle(filename);
+                if (!confirm(`「${filename}」はすでに存在します。上書きしますか？`)) return;
+            } catch (e) { /* ファイルが存在しない場合はそのまま */ }
 
-        await fetchSectionFiles(sectionId); // リロード
-    } catch (error) {
-        console.error('Upload error:', error);
-        alert('アップロードに失敗しました: ' + error.message);
+            // ファイルを書き込む
+            const fileHandle = await currentHandle.getFileHandle(filename, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(file);
+            await writable.close();
+
+            await fetchSectionFiles(sectionId);
+        } catch (error) {
+            console.error('Local write error:', error);
+            alert('ファイルの保存に失敗しました: ' + error.message);
+        }
+    } else {
+        // ローカルハンドルがない場合はサーバーAPIにフォールバック
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const response = await fetch(`/note/api/sections/${sectionId}/files`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!response.ok) throw new Error('Upload failed');
+            await fetchSectionFiles(sectionId);
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('アップロードに失敗しました: ' + error.message);
+        }
     }
 }
 
