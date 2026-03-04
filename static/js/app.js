@@ -1332,6 +1332,10 @@ async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
     const listEl = document.getElementById(`file-list-${sectionId}`);
     if (!listEl) return;
 
+    // フォルダが選択済みなのでピッカーボタンを非表示にする
+    const pickerEl = document.getElementById(`picker-${sectionId}`);
+    if (pickerEl) pickerEl.style.display = 'none';
+
     const entries = [];
     for await (const [name, handle] of dirHandle.entries()) {
         if (name.startsWith('.')) continue;
