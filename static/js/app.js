@@ -15,6 +15,28 @@ let sectionNavigationHistory = {};
 const localDirHandles = {}; // { sectionId: FileSystemDirectoryHandle (root) }
 const localDirSubHandles = {}; // { sectionId: FileSystemDirectoryHandle (current) }
 
+// デバイス固有ID（localStorageに永続）→複数PC間で設定を分離する
+function getDeviceId() {
+    let id = localStorage.getItem('notest_device_id');
+    if (!id) {
+        id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+        localStorage.setItem('notest_device_id', id);
+    }
+    return id;
+}
+
+// デバイス固有の設定を保存・取得
+function saveDeviceSetting(key, value) {
+    const dkey = `notest_${getDeviceId()}_${key}`;
+    localStorage.setItem(dkey, JSON.stringify(value));
+}
+
+function loadDeviceSetting(key, defaultValue) {
+    const dkey = `notest_${getDeviceId()}_${key}`;
+    const v = localStorage.getItem(dkey);
+    return v !== null ? JSON.parse(v) : defaultValue;
+}
+
 // IndexedDBへのハンドル保存（リロード後も持続するため）
 const FS_DB_NAME = 'notest-fs-handles';
 const FS_DB_VERSION = 1;
@@ -1311,7 +1333,8 @@ async function fetchSectionFiles(sectionId) {
     const data = typeof section.content_data === 'string'
         ? JSON.parse(section.content_data || '{}')
         : (section.content_data || {});
-    const viewMode = data.view_mode || 'list';
+    // デバイス固有の設定を優先（なければサーバー側の値を使用）
+    const viewMode = loadDeviceSetting(`view_mode_${sectionId}`, data.view_mode || 'list');
 
     // ローカルディレクトリハンドルがある場合はFile System Access APIを使う
     const currentHandle = localDirSubHandles[sectionId];
@@ -1372,6 +1395,7 @@ async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
         return `
             <div class="file-item"
                  title="${escapeHtml(entry.name)}"
+                 onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
                  ondblclick="openLocalFile(${sectionId}, '${escapeHtml(entry.name)}')">
                 <div class="file-icon">${icon}</div>
                 <div class="file-info">
@@ -1576,25 +1600,24 @@ async function updateSectionViewMode(sectionId, mode) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
+    // デバイス固有のlocalStorageに保存（複数PC間で設定を分離）
+    saveDeviceSetting(`view_mode_${sectionId}`, mode);
+
     try {
         const data = typeof section.content_data === 'string' ? JSON.parse(section.content_data) : (section.content_data || {});
         data.view_mode = mode;
-
-        await apiCall(`/api/sections/${sectionId}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-                content_data: data
-            })
-        });
-
         section.content_data = data;
         fetchSectionFiles(sectionId);
 
         // ヘッダーのアイコンを更新
         const toggleBtn = document.getElementById(`view-toggle-${sectionId}`);
-        if (toggleBtn) {
-            toggleBtn.innerHTML = getViewIcon(mode);
-        }
+        if (toggleBtn) toggleBtn.innerHTML = getViewIcon(mode);
+
+        // サーバーにも保存（他の設定と一緒に）
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content_data: data })
+        });
     } catch (error) {
         console.error('Update view mode error:', error);
     }
@@ -1604,19 +1627,19 @@ async function updateSectionSortOrder(sectionId, sortOrder) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
+    // デバイス固有のlocalStorageに保存
+    saveDeviceSetting(`sort_order_${sectionId}`, sortOrder);
+
     try {
         const data = typeof section.content_data === 'string' ? JSON.parse(section.content_data) : (section.content_data || {});
         data.sort_order = sortOrder;
+        section.content_data = data;
+        fetchSectionFiles(sectionId);
 
         await apiCall(`/api/sections/${sectionId}`, {
             method: 'PUT',
-            body: JSON.stringify({
-                content_data: data
-            })
+            body: JSON.stringify({ content_data: data })
         });
-
-        section.content_data = data;
-        fetchSectionFiles(sectionId);
     } catch (error) {
         console.error('Update sort order error:', error);
     }
@@ -2681,7 +2704,7 @@ async function deleteSectionFromMenu(sectionId) {
 // ファイルプレビュー関連
 let currentPreviewFile = null; // 現在プレビュー中のファイル
 
-function showFilePreview(sectionId, filename) {
+async function showFilePreview(sectionId, filename) {
     const panel = document.getElementById('filePreviewPanel');
     const content = document.getElementById('previewContent');
     const fileNameEl = document.getElementById('previewFileName');
@@ -2692,34 +2715,62 @@ function showFilePreview(sectionId, filename) {
         return;
     }
 
-    // 現在のプレビューファイルを記録
     currentPreviewFile = { sectionId, filename };
-
-    const downloadUrl = `${window.location.origin}/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
-    const ext = filename.toLowerCase().split('.').pop();
-
     fileNameEl.textContent = filename;
+    content.innerHTML = '<div style="padding:20px;color:#999;">読み込み中...</div>';
+    panel.classList.add('active');
+
+    const ext = filename.toLowerCase().split('.').pop();
+    const currentHandle = localDirSubHandles[sectionId];
+
+    let fileUrl;
+    let isBlob = false;
+
+    if (currentHandle) {
+        // ローカルファイルをBlobURLで表示
+        try {
+            const fileHandle = await currentHandle.getFileHandle(filename);
+            const file = await fileHandle.getFile();
+            fileUrl = URL.createObjectURL(file);
+            isBlob = true;
+        } catch (e) {
+            content.innerHTML = `<div class="preview-placeholder">ファイルを読み込めませんでした: ${escapeHtml(e.message)}</div>`;
+            return;
+        }
+    } else {
+        fileUrl = `${window.location.origin}/note/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+    }
 
     // ファイルタイプに応じてプレビューを生成
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext)) {
-        content.innerHTML = `<img src="${downloadUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
-    } else if (['mp4', 'webm', 'ogg'].includes(ext)) {
-        content.innerHTML = `<video controls style="max-width: 100%; max-height: 100%;"><source src="${downloadUrl}"></video>`;
-    } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
-        content.innerHTML = `<audio controls style="width: 100%;"><source src="${downloadUrl}"></audio>`;
+        content.innerHTML = `<img src="${fileUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
+    } else if (['mp4', 'webm'].includes(ext)) {
+        content.innerHTML = `<video controls style="max-width: 100%; max-height: 100%;"><source src="${fileUrl}"></video>`;
+    } else if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) {
+        content.innerHTML = `<audio controls style="width: 100%;"><source src="${fileUrl}"></audio>`;
     } else if (ext === 'pdf') {
-        content.innerHTML = `<iframe src="${downloadUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
-    } else if (['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'csv'].includes(ext)) {
-        fetch(downloadUrl)
-            .then(r => r.text())
-            .then(text => {
+        content.innerHTML = `<iframe src="${fileUrl}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+    } else if (['txt', 'md', 'json', 'js', 'css', 'html', 'xml', 'csv', 'py', 'sh'].includes(ext)) {
+        if (currentHandle) {
+            try {
+                const fileHandle = await currentHandle.getFileHandle(filename);
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                content.innerHTML = `<pre style="padding: 20px; overflow: auto; height: 100%;">${escapeHtml(text)}</pre>`;
+            } catch (e) {
+                content.innerHTML = `<div class="preview-placeholder">テキストを読み込めませんでした</div>`;
+            }
+        } else {
+            fetch(fileUrl).then(r => r.text()).then(text => {
                 content.innerHTML = `<pre style="padding: 20px; overflow: auto; height: 100%;">${escapeHtml(text)}</pre>`;
             });
+        }
     } else {
-        content.innerHTML = `<div class="preview-placeholder">このファイル形式はプレビューできません<br><br><a href="${downloadUrl}" download>ダウンロード</a></div>`;
+        content.innerHTML = `<div class="preview-placeholder">このファイル形式はプレビューできません<br><br><a href="${fileUrl}" download="${escapeHtml(filename)}">ダウンロード</a></div>`;
     }
 
-    panel.classList.add('active');
+    // BlobURLは1分後に解放
+    if (isBlob) setTimeout(() => URL.revokeObjectURL(fileUrl), 60000);
 }
 
 function closeFilePreview() {
