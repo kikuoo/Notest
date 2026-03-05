@@ -1347,22 +1347,28 @@ async function fetchSectionFiles(sectionId) {
     // ローカルディレクトリハンドルがある場合はFile System Access APIを使う
     const currentHandle = localDirSubHandles[sectionId];
     if (currentHandle) {
-        // パーミッション確認（リロード後はpromptになることがある）
+        // パーミッション確認（リロード後はpromptになる、またはエラーがスローされることがある）
+        let hasPermission = false;
         try {
             const perm = await currentHandle.queryPermission({ mode: 'read' });
             if (perm === 'granted') {
-                await fetchLocalFiles(sectionId, currentHandle, viewMode);
-                return;
-            } else {
-                // 未許可 → 再接続ボタンを表示（クリックでrequestPermission）
-                listEl.innerHTML = `<div style="padding:12px;">
-                    <button class="btn-primary" onclick="reconnectFolder(${sectionId})">🔗 「${escapeHtml(currentHandle.name)}」に再接続</button>
-                    <div style="margin-top:6px;font-size:12px;color:#999;">リロード後はフォルダへの再接続が必要です。</div>
-                </div>`;
-                return;
+                hasPermission = true;
             }
         } catch (e) {
-            console.warn('Permission check failed', e);
+            console.warn('Permission check failed, requiring reconnect:', e);
+            // エラー時もhasPermissionはfalseのまま
+        }
+
+        if (hasPermission) {
+            await fetchLocalFiles(sectionId, currentHandle, viewMode);
+            return;
+        } else {
+            // 未許可、またはエラー完了時 → 再接続ボタンを表示（クリックでrequestPermission）
+            listEl.innerHTML = `<div style="padding:12px;">
+                <button class="btn-primary" onclick="reconnectFolder(${sectionId})">🔗 「${escapeHtml(currentHandle.name)}」に再接続</button>
+                <div style="margin-top:6px;font-size:12px;color:#999;">リロード後はフォルダへの再接続が必要です。</div>
+            </div>`;
+            return;
         }
     }
 
@@ -2750,13 +2756,23 @@ async function showFilePreview(sectionId, filename) {
     let isBlob = false;
 
     if (currentHandle) {
-        // ローカルファイルをBlobURLで表示
+        // ローカルファイルをBlobURLで表示（事前権限チェック）
         try {
+            // パミッションの確認と要求
+            let perm = await currentHandle.queryPermission({ mode: 'read' });
+            if (perm === 'prompt') perm = await currentHandle.requestPermission({ mode: 'read' });
+
+            if (perm !== 'granted') {
+                content.innerHTML = `<div class="preview-placeholder">ファイルへのアクセス権限がありません</div>`;
+                return;
+            }
+
             const fileHandle = await currentHandle.getFileHandle(filename);
             const file = await fileHandle.getFile();
             fileUrl = URL.createObjectURL(file);
             isBlob = true;
         } catch (e) {
+            console.error("Preview local file error:", e);
             content.innerHTML = `<div class="preview-placeholder">ファイルを読み込めませんでした: ${escapeHtml(e.message)}</div>`;
             return;
         }
