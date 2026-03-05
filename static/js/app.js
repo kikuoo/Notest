@@ -864,8 +864,6 @@ function deleteStorageFileAndHide(sectionId, filename) {
 
 // ページ読み込み完了時の処理
 document.addEventListener('DOMContentLoaded', async () => {
-    loadTabs();
-
     // テーマ適用
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -888,30 +886,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         pageContent.addEventListener('contextmenu', showPageContextMenu);
     }
 
-    // IndexedDBから保存済みローカルフォルダハンドルを復元
+    // ① IndexedDBからハンドルを先にメモリに読み込む（loadTabs()より前）
+    // ※ requestPermission()はユーザージェスチャーが必要なので起動時は呼ばない
     try {
         const savedHandles = await loadAllFsHandles();
         for (const { sectionId, handle } of savedHandles) {
-            try {
-                // パーミッションを確認（必要なら再許可ダイアログ表示）
-                let perm = await handle.queryPermission({ mode: 'read' });
-                if (perm === 'prompt') {
-                    perm = await handle.requestPermission({ mode: 'read' });
-                }
-                if (perm === 'granted') {
-                    localDirHandles[sectionId] = handle;
-                    localDirSubHandles[sectionId] = handle;
-                    sectionNavigationHistory[sectionId] = { history: [handle.name], currentIndex: 0, handles: [handle] };
-                }
-            } catch (e) {
-                console.warn(`Section ${sectionId} handle restore failed:`, e);
-                await deleteFsHandle(sectionId);
-            }
+            // ハンドルをメモリに保持（権限確認はセクション描画時に行う）
+            localDirHandles[sectionId] = handle;
+            localDirSubHandles[sectionId] = handle;
+            sectionNavigationHistory[sectionId] = { history: [handle.name], currentIndex: 0, handles: [handle] };
         }
     } catch (e) {
         console.warn('IndexedDB handle restore failed:', e);
     }
+
+    // ② ハンドル読み込み後にタブ・セクションを描画
+    loadTabs();
 });
+
+// フォルダへの再接続（リロード後のパーミッション再取得）
+async function reconnectFolder(sectionId) {
+    const handle = localDirHandles[sectionId];
+    if (!handle) return;
+    try {
+        const perm = await handle.requestPermission({ mode: 'read' });
+        if (perm === 'granted') {
+            localDirSubHandles[sectionId] = handle;
+            await fetchSectionFiles(sectionId);
+        } else {
+            alert('フォルダへのアクセスが拒否されました。再度フォルダを選択してください。');
+        }
+    } catch (e) {
+        alert('再接続に失敗しました: ' + e.message);
+    }
+}
 
 async function updateSectionContent(sectionId, contentType, value) {
     if (contentType === 'text') {
@@ -1339,8 +1347,23 @@ async function fetchSectionFiles(sectionId) {
     // ローカルディレクトリハンドルがある場合はFile System Access APIを使う
     const currentHandle = localDirSubHandles[sectionId];
     if (currentHandle) {
-        await fetchLocalFiles(sectionId, currentHandle, viewMode);
-        return;
+        // パーミッション確認（リロード後はpromptになることがある）
+        try {
+            const perm = await currentHandle.queryPermission({ mode: 'read' });
+            if (perm === 'granted') {
+                await fetchLocalFiles(sectionId, currentHandle, viewMode);
+                return;
+            } else {
+                // 未許可 → 再接続ボタンを表示（クリックでrequestPermission）
+                listEl.innerHTML = `<div style="padding:12px;">
+                    <button class="btn-primary" onclick="reconnectFolder(${sectionId})">🔗 「${escapeHtml(currentHandle.name)}」に再接続</button>
+                    <div style="margin-top:6px;font-size:12px;color:#999;">リロード後はフォルダへの再接続が必要です。</div>
+                </div>`;
+                return;
+            }
+        } catch (e) {
+            console.warn('Permission check failed', e);
+        }
     }
 
     // ハンドルがない場合は設定ボタンからフォルダを選択するようガイドを表示
