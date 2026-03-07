@@ -886,18 +886,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         pageContent.addEventListener('contextmenu', showPageContextMenu);
     }
 
-    // ① IndexedDBからハンドルを先にメモリに読み込む（loadTabs()より前）
-    // ※ requestPermission()はユーザージェスチャーが必要なので起動時は呼ばない
+    // ① IndexedDBからハンドルを先にメモリに読み込む
     try {
         const savedHandles = await loadAllFsHandles();
+        let loadedCount = 0;
         for (const { sectionId, handle } of savedHandles) {
-            // ハンドルをメモリに保持（権限確認はセクション描画時に行う）
             localDirHandles[sectionId] = handle;
             localDirSubHandles[sectionId] = handle;
             sectionNavigationHistory[sectionId] = { history: [handle.name], currentIndex: 0, handles: [handle] };
+            loadedCount++;
         }
+        // デバッグ用: ロードされたハンドル数を画面に小さく表示（後で消す）
+        const debugEl = document.createElement('div');
+        debugEl.style = "position:fixed;bottom:10px;right:10px;background:white;color:red;z-index:9999;padding:5px;";
+        debugEl.innerText = `Handles Loaded: ${loadedCount}`;
+        document.body.appendChild(debugEl);
     } catch (e) {
-        console.warn('IndexedDB handle restore failed:', e);
+        alert('IndexedDB load error: ' + e.message);
     }
 
     // ② ハンドル読み込み後にタブ・セクションを描画
@@ -1347,20 +1352,25 @@ async function fetchSectionFiles(sectionId) {
     // ローカルディレクトリハンドルがある場合はFile System Access APIを使う
     const currentHandle = localDirSubHandles[sectionId];
     if (currentHandle) {
-        // パーミッション確認（リロード後はpromptになる、またはエラーがスローされることがある）
         let hasPermission = false;
         try {
             const perm = await currentHandle.queryPermission({ mode: 'read' });
             if (perm === 'granted') {
                 hasPermission = true;
+            } else {
+                listEl.innerHTML += `<div style="color:red;font-size:12px;">Permission state: ${perm}</div>`;
             }
         } catch (e) {
-            console.warn('Permission check failed, requiring reconnect:', e);
-            // エラー時もhasPermissionはfalseのまま
+            listEl.innerHTML = `<div style="color:red;padding:10px;">Query Permission Error: ${e.message}</div>`;
+            return;
         }
 
         if (hasPermission) {
-            await fetchLocalFiles(sectionId, currentHandle, viewMode);
+            try {
+                await fetchLocalFiles(sectionId, currentHandle, viewMode);
+            } catch (e) {
+                listEl.innerHTML = `<div style="color:red;padding:10px;">Fetch Local Files Error: ${e.message}</div>`;
+            }
             return;
         } else {
             // 未許可、またはエラー完了時 → 再接続ボタンを表示（クリックでrequestPermission）
@@ -1373,7 +1383,7 @@ async function fetchSectionFiles(sectionId) {
     }
 
     // ハンドルがない場合は設定ボタンからフォルダを選択するようガイドを表示
-    listEl.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">⚙️ 設定ボタンから「フォルダを選択」してください。</div>`;
+    listEl.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">⚙️ フォルダ未選択です（currentHandleがない状態）<br>設定ボタンから「フォルダを選択」してください。</div>`;
 }
 
 async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
@@ -2763,7 +2773,7 @@ async function showFilePreview(sectionId, filename) {
             if (perm === 'prompt') perm = await currentHandle.requestPermission({ mode: 'read' });
 
             if (perm !== 'granted') {
-                content.innerHTML = `<div class="preview-placeholder">ファイルへのアクセス権限がありません</div>`;
+                content.innerHTML = `<div class="preview-placeholder">ファイルへのアクセス権限がありません (状態: ${perm})</div>`;
                 return;
             }
 
@@ -2773,7 +2783,11 @@ async function showFilePreview(sectionId, filename) {
             isBlob = true;
         } catch (e) {
             console.error("Preview local file error:", e);
-            content.innerHTML = `<div class="preview-placeholder">ファイルを読み込めませんでした: ${escapeHtml(e.message)}</div>`;
+            content.innerHTML = `<div class="preview-placeholder" style="color:red;text-align:left;padding:20px;">
+                <b>プレビュー生成エラー:</b><br><br>
+                ${escapeHtml(e.toString())}<br><br>
+                <div style="font-size:11px;color:#666;">${escapeHtml(e.stack || '')}</div>
+            </div>`;
             return;
         }
     } else {
