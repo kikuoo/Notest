@@ -28,7 +28,7 @@ function showFilePreview(sectionId, filename) {
 
     // ファイルの拡張子を取得
     const ext = filename.split('.').pop().toLowerCase();
-    const downloadUrl = `/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
+    const downloadUrl = window.getApiUrl(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`);
 
     // プレビュー内容を生成
     let previewHTML = '';

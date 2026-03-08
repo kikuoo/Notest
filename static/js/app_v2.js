@@ -85,13 +85,26 @@ async function deleteFsHandle(sectionId) {
     });
 }
 
+// API URL構築用ヘルパー
+window.getApiUrl = function (path) {
+    // /note/ サブフォルダ対応: /api/ で始まるURLに /note プレフィックスを付ける
+    if (path.startsWith('/api/')) {
+        return '/note' + path;
+    }
+    return path;
+};
+
 // API呼び出し関数
 async function apiCall(url, options = {}) {
     const showAlert = options.showAlert !== false;
-    // /note/ サブフォルダ対応: /api/ で始まるURLに /note プレフィックスを付ける
-    if (url.startsWith('/api/')) {
-        url = '/note' + url;
+
+    // キャッシュ対策：GETリクエストにはタイムスタンプ付与
+    if (!options.method || options.method === 'GET') {
+        const separator = url.includes('?') ? '&' : '?';
+        url += `${separator}_t=${Date.now()}`;
     }
+
+    url = window.getApiUrl(url);
     try {
         console.log(`API Call: ${url}`, options);
         const response = await fetch(url, {
@@ -421,7 +434,7 @@ function createSectionElement(section) {
     sectionEl.innerHTML = headerHtml + `
         ${section.content_type !== 'notepad' && section.content_type !== 'image' ? `
             <div class="section-memo">
-                <textarea placeholder="メモ..." onchange="updateSectionContent(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
+                <textarea placeholder="メモ..." oninput="updateSectionContentDebounced(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
             </div>
         ` : ''}
         <div class="section-content ${section.content_type === 'notepad' || section.content_type === 'image' ? 'full-height notepad-content-area' : ''}" data-section-id="${section.id}">
@@ -448,7 +461,7 @@ function renderSectionContent(section) {
 
     switch (section.content_type) {
         case 'text':
-            return `<textarea class="content-text" onchange="updateSectionContent(${section.id}, 'text', this.value)">${escapeHtml(data.text || '')}</textarea>`;
+            return `<textarea class="content-text" oninput="updateSectionContentDebounced(${section.id}, 'text', this.value)">${escapeHtml(data.text || '')}</textarea>`;
         case 'link':
             return `<a href="${escapeHtml(data.url || '#')}" target="_blank" class="content-link">${escapeHtml(data.title || data.url || 'リンク')}</a>`;
         case 'file':
@@ -475,7 +488,7 @@ function renderSectionContent(section) {
             color: ${data.fontColor || '#333333'};
             `;
             return `
-                <textarea class="notepad-content" id="notepad-${section.id}" style="${style}" placeholder="ここにメモを入力してください..." onchange="updateSectionContent(${section.id}, 'notepad', this.value)">${escapeHtml(data.text || '')}</textarea>
+                <textarea class="notepad-content" id="notepad-${section.id}" style="${style}" placeholder="ここにメモを入力してください..." oninput="updateSectionContentDebounced(${section.id}, 'notepad', this.value)">${escapeHtml(data.text || '')}</textarea>
                 `;
 
         case 'image':
@@ -926,14 +939,80 @@ async function reconnectFolder(sectionId) {
     }
 }
 
+let debounceTimers = {};
+let pendingUpdates = {};
+
+function updateSectionContentDebounced(sectionId, contentType, value) {
+    const key = `${sectionId}-${contentType}`;
+    pendingUpdates[key] = value;
+
+    if (debounceTimers[key]) clearTimeout(debounceTimers[key]);
+    debounceTimers[key] = setTimeout(() => {
+        updateSectionContent(sectionId, contentType, pendingUpdates[key]);
+        delete pendingUpdates[key];
+        delete debounceTimers[key];
+    }, 1000);
+}
+
+// ページ遷移直前(リロード時等)に未保存のデータを強制保存
+window.addEventListener('beforeunload', () => {
+    for (const key in pendingUpdates) {
+        const [sectionIdStr, contentType] = key.split('-');
+        const sectionId = parseInt(sectionIdStr);
+        const value = pendingUpdates[key];
+
+        const section = sections.find(s => s.id === sectionId);
+        if (!section) continue;
+
+        let bodyData = null;
+        if (contentType === 'text') {
+            const contentData = { text: value };
+            section.content_data = contentData;
+            bodyData = JSON.stringify({ content_data: contentData });
+        } else if (contentType === 'notepad') {
+            const contentData = section.content_data || {};
+            contentData.text = value;
+            section.content_data = contentData;
+            bodyData = JSON.stringify({ content_data: contentData });
+        } else if (contentType === 'memo') {
+            section.memo = value;
+            bodyData = JSON.stringify({ memo: value });
+        }
+
+        if (bodyData) {
+            const url = window.getApiUrl(`/api/sections/${sectionId}`);
+            // keepaliveフラグをつけて送信完了を保証
+            fetch(url, {
+                method: 'PUT',
+                body: bodyData,
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true
+            });
+        }
+    }
+});
+
 async function updateSectionContent(sectionId, contentType, value) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
     if (contentType === 'text') {
         const contentData = { text: value };
+        section.content_data = contentData;
+        await apiCall(`/api/sections/${sectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content_data: contentData })
+        });
+    } else if (contentType === 'notepad') {
+        const contentData = section.content_data || {};
+        contentData.text = value;
+        section.content_data = contentData;
         await apiCall(`/api/sections/${sectionId}`, {
             method: 'PUT',
             body: JSON.stringify({ content_data: contentData })
         });
     } else if (contentType === 'memo') {
+        section.memo = value;
         await apiCall(`/api/sections/${sectionId}`, {
             method: 'PUT',
             body: JSON.stringify({ memo: value })
@@ -997,7 +1076,7 @@ async function deleteSection(sectionId) {
 }
 
 function downloadFile(sectionId) {
-    window.open(`/api/files/${sectionId}`, '_blank');
+    window.open(window.getApiUrl(`/api/files/${sectionId}`), '_blank');
 }
 
 // ドラッグアンドドロップ
@@ -1382,8 +1461,56 @@ async function fetchSectionFiles(sectionId) {
         }
     }
 
-    // ハンドルがない場合は設定ボタンからフォルダを選択するようガイドを表示
-    listEl.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">⚙️ フォルダ未選択です（currentHandleがない状態）<br>設定ボタンから「フォルダを選択」してください。</div>`;
+    // === サーバーサイドパス指定の場合（ローカルハンドルがない場合） ===
+    if (data.path) {
+        try {
+            const files = await apiCall(`/api/sections/${sectionId}/files`);
+            listEl.className = 'file-list' + (viewMode !== 'list' ? ' ' + viewMode : '');
+            listEl.oncontextmenu = (e) => showStorageViewContextMenu(e, sectionId);
+
+            if (files.length === 0) {
+                listEl.innerHTML = '<div style="padding:10px;color:#999;">ファイルがありません</div>';
+                return;
+            }
+
+            listEl.innerHTML = files.map(entry => {
+                if (entry.is_directory) {
+                    return `
+                        <div class="file-item folder-item"
+                             title="${escapeHtml(entry.name)}"
+                             ondblclick="navigateToFolder(${sectionId}, '${escapeHtml(entry.name)}')">
+                            <div class="file-icon">📁</div>
+                            <div class="file-info">
+                                <div class="file-name">${escapeHtml(entry.name)}</div>
+                                <div class="file-meta">フォルダ</div>
+                            </div>
+                        </div>`;
+                }
+                const isImage = /\\.(jpg|jpeg|png|gif|webp|svg)$/i.test(entry.name);
+                const isPdf = /\\.pdf$/i.test(entry.name);
+                const isZip = /\\.(zip|rar|7z)$/i.test(entry.name);
+                let icon = isImage ? '🖼' : isPdf ? '📕' : isZip ? '📦' : '📄';
+                return `
+                    <div class="file-item"
+                         title="${escapeHtml(entry.name)}"
+                         onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
+                         ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(entry.name)}')">
+                        <div class="file-icon">${icon}</div>
+                        <div class="file-info">
+                            <div class="file-name">${escapeHtml(entry.name)}</div>
+                            <div class="file-meta">${formatFileSize(entry.size)}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+            return;
+        } catch (error) {
+            listEl.innerHTML = `<div style="padding:10px;color:red;">サーバーからの取得エラー: ${escapeHtml(error.message)}</div>`;
+            return;
+        }
+    }
+
+    // ハンドルがなく、パスも設定されていない場合
+    listEl.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">⚙️ フォルダ未選択です<br>設定ボタンから「フォルダを選択」またはパスを設定してください。</div>`;
 }
 
 async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
@@ -1554,8 +1681,18 @@ async function navigateToParentFolder(sectionId) {
         return;
     }
     navCtx.currentIndex--;
-    const handle = navCtx.handles[navCtx.currentIndex];
-    localDirSubHandles[sectionId] = handle;
+
+    if (navCtx.handles && navCtx.handles.length > 0) {
+        const handle = navCtx.handles[navCtx.currentIndex];
+        localDirSubHandles[sectionId] = handle;
+    } else {
+        const targetPath = navCtx.history[navCtx.currentIndex];
+        const section = sections.find(s => s.id === sectionId);
+        const data = typeof section.content_data === 'string'
+            ? JSON.parse(section.content_data || '{}')
+            : (section.content_data || {});
+        await updateSectionStorageConfig(sectionId, data.storage_type || 'local', targetPath);
+    }
     await fetchSectionFiles(sectionId);
 }
 
@@ -1564,8 +1701,18 @@ async function navigateForwardFolder(sectionId) {
     if (!canNavigateForward(sectionId)) return;
     const navCtx = sectionNavigationHistory[sectionId];
     navCtx.currentIndex++;
-    const handle = navCtx.handles[navCtx.currentIndex];
-    localDirSubHandles[sectionId] = handle;
+
+    if (navCtx.handles && navCtx.handles.length > 0) {
+        const handle = navCtx.handles[navCtx.currentIndex];
+        localDirSubHandles[sectionId] = handle;
+    } else {
+        const targetPath = navCtx.history[navCtx.currentIndex];
+        const section = sections.find(s => s.id === sectionId);
+        const data = typeof section.content_data === 'string'
+            ? JSON.parse(section.content_data || '{}')
+            : (section.content_data || {});
+        await updateSectionStorageConfig(sectionId, data.storage_type || 'local', targetPath);
+    }
     await fetchSectionFiles(sectionId);
 }
 
@@ -1733,8 +1880,8 @@ async function uploadFileToStorage(sectionId, file) {
     }
 }
 
-function downloadStorageFile(sectionId, filename) {
-    window.open(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}?download=1`, '_blank');
+function downloadStorageFile(sectionId, filename) {        // ファイルをダウンロード（別タブで開く）
+    window.open(window.getApiUrl(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}?download=1`), '_blank');
 }
 
 async function deleteStorageFile(sectionId, filename) {

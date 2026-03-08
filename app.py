@@ -4,7 +4,7 @@ import os
 # 環境変数の読み込み (Configのインポート前に実行する必要があります)
 load_dotenv()
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
@@ -30,6 +30,13 @@ mail = Mail(app)
 
 
 # データベースモデル
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 class Tab(db.Model):
     __tablename__ = 'tabs'
     id = db.Column(db.Integer, primary_key=True)
