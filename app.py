@@ -30,13 +30,6 @@ mail = Mail(app)
 
 
 # データベースモデル
-@app.after_request
-def add_header(response):
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
-
 class Tab(db.Model):
     __tablename__ = 'tabs'
     id = db.Column(db.Integer, primary_key=True)
