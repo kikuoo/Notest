@@ -2292,12 +2292,14 @@ async function openDirectoryBrowser() {
         // 選択されたハンドルのパスをインプットに設定（表示用）
         const pathInput = document.getElementById('sectionStoragePath');
         if (pathInput) pathInput.value = dirHandle.name;
-        // editingSectionIdから現在のセクションIDを取得
         const sectionId = parseInt(document.getElementById('editingSectionId')?.value);
         if (sectionId) {
             localDirHandles[sectionId] = dirHandle;
             localDirSubHandles[sectionId] = dirHandle;
             sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
+
+            // 重要: このハンドルをIndexedDBに永続化保存する（リロード時の復元のため）
+            await saveFsHandle(sectionId, dirHandle);
         }
     } catch (e) {
         if (e.name !== 'AbortError') alert('フォルダの選択に失敗しました: ' + e.message);
