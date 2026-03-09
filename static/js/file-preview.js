@@ -11,24 +11,60 @@ function closeFilePreview() {
     const btn = document.getElementById('togglePreviewBtn');
     panel.classList.remove('open');
     btn.classList.remove('active');
+
+    // プレビュー用に作られたローカルファイルURLを解放（メモリリーク防止）
+    if (typeof currentPreviewUrl !== 'undefined' && currentPreviewUrl && currentPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreviewUrl);
+        currentPreviewUrl = null;
+    }
 }
 
-function showFilePreview(sectionId, filename) {
+let currentPreviewUrl = null;
+
+async function showFilePreview(sectionId, filename) {
     const panel = document.getElementById('filePreviewPanel');
     const btn = document.getElementById('togglePreviewBtn');
     const fileNameEl = document.getElementById('previewFileName');
     const contentEl = document.getElementById('previewContent');
 
+    // 前回のURLがあれば解放（メモリリーク防止）
+    if (currentPreviewUrl && currentPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreviewUrl);
+        currentPreviewUrl = null;
+    }
+
     // パネルを開く
     panel.classList.add('open');
     btn.classList.add('active');
+
+    // 最初はローディング表示や内容のクリア
+    contentEl.innerHTML = '<div style="padding: 20px; color: #666; text-align: center;">読み込み中...</div>';
 
     // ファイル名を表示
     fileNameEl.textContent = filename;
 
     // ファイルの拡張子を取得
     const ext = filename.split('.').pop().toLowerCase();
-    const downloadUrl = window.getApiUrl(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`);
+
+    let downloadUrl = '';
+
+    // ローカルフォルダ（File System Access API）の確認
+    if (typeof localDirSubHandles !== 'undefined' && localDirSubHandles[sectionId]) {
+        try {
+            const currentHandle = localDirSubHandles[sectionId];
+            const fileHandle = await currentHandle.getFileHandle(filename);
+            const file = await fileHandle.getFile();
+            downloadUrl = URL.createObjectURL(file);
+            currentPreviewUrl = downloadUrl;
+        } catch (e) {
+            console.error("Local file access error:", e);
+            contentEl.innerHTML = `<div style="padding:20px; color:red; text-align:center;">ファイルの読み込みに失敗しました: ${e.message}</div>`;
+            return;
+        }
+    } else {
+        downloadUrl = window.getApiUrl(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`);
+        currentPreviewUrl = downloadUrl;
+    }
 
     // プレビュー内容を生成
     let previewHTML = '';
