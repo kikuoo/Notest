@@ -434,7 +434,7 @@ function createSectionElement(section) {
     sectionEl.innerHTML = headerHtml + `
         ${section.content_type !== 'notepad' && section.content_type !== 'image' ? `
             <div class="section-memo">
-                <textarea placeholder="メモ..." oninput="updateSectionContentDebounced(${section.id}, 'memo', this.value)">${escapeHtml(section.memo || '')}</textarea>
+                <textarea placeholder="メモ..." oninput="updateSectionContentDebounced(${section.id}, 'memo', this.value)">${escapeHtml(localStorage.getItem('notest_draft_' + section.id + '_memo') ?? (section.memo || ''))}</textarea>
             </div>
         ` : ''}
         <div class="section-content ${section.content_type === 'notepad' || section.content_type === 'image' ? 'full-height notepad-content-area' : ''}" data-section-id="${section.id}">
@@ -461,7 +461,7 @@ function renderSectionContent(section) {
 
     switch (section.content_type) {
         case 'text':
-            return `<textarea class="content-text" oninput="updateSectionContentDebounced(${section.id}, 'text', this.value)">${escapeHtml(data.text || '')}</textarea>`;
+            return `<textarea class="content-text" oninput="updateSectionContentDebounced(${section.id}, 'text', this.value)">${escapeHtml(localStorage.getItem('notest_draft_' + section.id + '_text') ?? (data.text || ''))}</textarea>`;
         case 'link':
             return `<a href="${escapeHtml(data.url || '#')}" target="_blank" class="content-link">${escapeHtml(data.title || data.url || 'リンク')}</a>`;
         case 'file':
@@ -488,7 +488,7 @@ function renderSectionContent(section) {
             color: ${data.fontColor || '#333333'};
             `;
             return `
-                <textarea class="notepad-content" id="notepad-${section.id}" style="${style}" placeholder="ここにメモを入力してください..." oninput="updateSectionContentDebounced(${section.id}, 'notepad', this.value)">${escapeHtml(data.text || '')}</textarea>
+                <textarea class="notepad-content" id="notepad-${section.id}" style="${style}" placeholder="ここにメモを入力してください..." oninput="updateSectionContentDebounced(${section.id}, 'notepad', this.value)">${escapeHtml(localStorage.getItem('notest_draft_' + section.id + '_notepad') ?? (data.text || ''))}</textarea>
                 `;
 
         case 'image':
@@ -909,11 +909,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             sectionNavigationHistory[sectionId] = { history: [handle.name], currentIndex: 0, handles: [handle] };
             loadedCount++;
         }
-        // デバッグ用: ロードされたハンドル数を画面に小さく表示（後で消す）
-        const debugEl = document.createElement('div');
-        debugEl.style = "position:fixed;bottom:10px;right:10px;background:white;color:red;z-index:9999;padding:5px;";
-        debugEl.innerText = `Handles Loaded: ${loadedCount}`;
-        document.body.appendChild(debugEl);
     } catch (e) {
         alert('IndexedDB load error: ' + e.message);
     }
@@ -945,6 +940,9 @@ let pendingUpdates = {};
 function updateSectionContentDebounced(sectionId, contentType, value) {
     const key = `${sectionId}-${contentType}`;
     pendingUpdates[key] = value;
+
+    // 直ちにローカルストレージへドラフト保存（リロード時の保険）
+    localStorage.setItem(`notest_draft_${sectionId}_${contentType}`, value);
 
     if (debounceTimers[key]) clearTimeout(debounceTimers[key]);
     debounceTimers[key] = setTimeout(() => {
@@ -996,27 +994,35 @@ async function updateSectionContent(sectionId, contentType, value) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
-    if (contentType === 'text') {
-        const contentData = { text: value };
-        section.content_data = contentData;
-        await apiCall(`/api/sections/${sectionId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ content_data: contentData })
-        });
-    } else if (contentType === 'notepad') {
-        const contentData = section.content_data || {};
-        contentData.text = value;
-        section.content_data = contentData;
-        await apiCall(`/api/sections/${sectionId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ content_data: contentData })
-        });
-    } else if (contentType === 'memo') {
-        section.memo = value;
-        await apiCall(`/api/sections/${sectionId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ memo: value })
-        });
+    try {
+        if (contentType === 'text') {
+            const contentData = { text: value };
+            section.content_data = contentData;
+            await apiCall(`/api/sections/${sectionId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ content_data: contentData })
+            });
+        } else if (contentType === 'notepad') {
+            const contentData = section.content_data || {};
+            contentData.text = value;
+            section.content_data = contentData;
+            await apiCall(`/api/sections/${sectionId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ content_data: contentData })
+            });
+        } else if (contentType === 'memo') {
+            section.memo = value;
+            await apiCall(`/api/sections/${sectionId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ memo: value })
+            });
+        }
+
+        // サーバーへの保存が成功した場合のみドラフトを削除
+        localStorage.removeItem(`notest_draft_${sectionId}_${contentType}`);
+    } catch (e) {
+        console.error('Failed to save content to server', e);
+        // 保存に失敗した場合、ドラフトはそのまま維持されるので、次回リロード時に復元される
     }
 }
 
@@ -1462,6 +1468,16 @@ async function fetchSectionFiles(sectionId) {
     }
 
     // === サーバーサイドパス指定の場合（ローカルハンドルがない場合） ===
+    // もし storage_type が 'local' なら、サーバーに問い合わせずここで警告を出す
+    if (data.storage_type === 'local') {
+        listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #999;">
+            ローカルフォルダが未接続です。<br>
+            右上の「⋮」メニューの「設定」にある「📁 フォルダを選択」から、対象のフォルダを再選択してください。<br>
+            <small style="color:#d32f2f; display:block; margin-top:8px;">※URLが「http://」で通信が保護されていない場合、ローカルフォルダはブラウザのセキュリティ制限により機能しません。「https://」でアクセスしてください。</small>
+        </div>`;
+        return;
+    }
+
     if (data.path) {
         try {
             const files = await apiCall(`/api/sections/${sectionId}/files`);
