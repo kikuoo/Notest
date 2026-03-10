@@ -1480,7 +1480,7 @@ async function fetchSectionFiles(sectionId) {
 
     if (data.path) {
         try {
-            const files = await apiCall(`/api/sections/${sectionId}/files`);
+            const files = await apiCall(`/api/sections/${sectionId}/files`, { showAlert: false });
             listEl.className = 'file-list' + (viewMode !== 'list' ? ' ' + viewMode : '');
             listEl.oncontextmenu = (e) => showStorageViewContextMenu(e, sectionId);
 
