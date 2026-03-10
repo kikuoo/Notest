@@ -1431,6 +1431,19 @@ async function fetchSectionFiles(sectionId) {
     const data = typeof section.content_data === 'string'
         ? JSON.parse(section.content_data || '{}')
         : (section.content_data || {});
+
+    // 端末ごとのローカル設定を上書きで読み込む（他のPCの設定に影響されないようにする）
+    const localOverrideJSON = localStorage.getItem('local_storage_config_' + sectionId);
+    if (localOverrideJSON) {
+        try {
+            const localOverride = JSON.parse(localOverrideJSON);
+            if (localOverride.storage_type) data.storage_type = localOverride.storage_type;
+            if (localOverride.path) data.path = localOverride.path;
+        } catch (e) {
+            console.error("Local storage override parse error:", e);
+        }
+    }
+
     // デバイス固有の設定を優先（なければサーバー側の値を使用）
     const viewMode = loadDeviceSetting(`view_mode_${sectionId}`, data.view_mode || 'list');
 
@@ -2266,8 +2279,20 @@ function configureSection(sectionId) {
 
     // 現在の設定を取得
     const currentData = section.content_data || {};
-    const currentStorageType = currentData.storage_type || 'local';
-    const currentPath = currentData.path || '';
+    let currentStorageType = currentData.storage_type || 'local';
+    let currentPath = currentData.path || '';
+
+    // 端末ごとのローカル設定を上書きで読み込む（他のPCの設定に影響されないようにする）
+    const localOverrideJSON = localStorage.getItem('local_storage_config_' + sectionId);
+    if (localOverrideJSON) {
+        try {
+            const localOverride = JSON.parse(localOverrideJSON);
+            if (localOverride.storage_type) currentStorageType = localOverride.storage_type;
+            if (localOverride.path) currentPath = localOverride.path;
+        } catch (e) {
+            console.error("Local storage override parse error:", e);
+        }
+    }
 
     // モーダルに値をセット
     document.getElementById('editingSectionId').value = sectionId;
@@ -2439,12 +2464,28 @@ function setupDirectoryBrowserEvents() {
             return;
         }
 
+        let dbPath = path;
+
+        // 端末ごとのローカルフォルダ設定機能
+        if (storageType === 'local') {
+            // ローカルフォルダの場合は端末のブラウザ(localStorage)にのみフルパスを記憶させる
+            localStorage.setItem('local_storage_config_' + sectionId, JSON.stringify({
+                storage_type: 'local',
+                path: path
+            }));
+            // ※クラウド上のDBには「これはローカル設定である」というフラグだけ送り、他PCのパスを上書き破壊しないよう空文字にする
+            dbPath = '';
+        } else {
+            // ローカル以外のクラウドストレージ（OneDrive等）に変更された場合は、現在のローカル設定を破棄
+            localStorage.removeItem('local_storage_config_' + sectionId);
+        }
+
         const updateData = {
             name: name,
             content_type: 'storage',
             content_data: {
                 storage_type: storageType,
-                path: path
+                path: dbPath
             }
         };
 
@@ -2458,7 +2499,11 @@ function setupDirectoryBrowserEvents() {
         if (section) {
             section.name = name;
             section.content_type = 'storage';
-            section.content_data = updateData.content_data;
+            // 表示上は現在の端末のパスを保持しておく
+            section.content_data = {
+                storage_type: storageType,
+                path: path
+            };
         }
         hideModal('modalSectionSettings');
         renderPageContent(); // 再描画
