@@ -18,7 +18,11 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <h1>WowNote</h1>
-                <button class="btn-new-tab" id="btnNewTab">+ 新しいタブ</button>
+                <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
+                    <button class="btn-new-tab" id="btnNewTab">+ 新しいタブ</button>
+                    <button class="btn-secondary" id="btnManageHiddenTabs"
+                        style="font-size: 11px; padding: 4px; display: none;">非表示のタブを見る</button>
+                </div>
             </div>
             <div class="tabs-list" id="tabsList">
                 <!-- タブが動的に追加されます -->
@@ -70,6 +74,22 @@
             <div class="modal-actions">
                 <button class="btn-primary" id="btnCreatePage">作成</button>
                 <button class="btn-secondary" id="btnCancelPage">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 非表示タブの管理 -->
+    <div class="modal" id="modalHiddenTabs">
+        <div class="modal-content">
+            <span class="close" id="closeHiddenTabs">&times;</span>
+            <h2>非表示のタブ (このPCのみ)</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">以下のタブは、現在のPC上で非表示に設定されています。</p>
+            <div id="hiddenTabsListContainer"
+                style="max-height: 250px; overflow-y: auto; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 20px;">
+                <!-- 非表示タブリストが動的に追加されます -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="btnCloseHiddenTabsModal">閉じる</button>
             </div>
         </div>
     </div>

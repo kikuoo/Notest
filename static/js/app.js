@@ -209,7 +209,27 @@ async function deleteTab(tabId) {
 function renderTabs() {
     const tabsList = document.getElementById('tabsList');
     tabsList.innerHTML = '';
-    tabs.forEach(tab => {
+
+    // PC固有の非表示タブ設定を取得
+    const hiddenTabs = getHiddenTabs();
+
+    // 設定ボタンの表示/非表示を切り替え
+    const btnManageHiddenTabs = document.getElementById('btnManageHiddenTabs');
+    if (btnManageHiddenTabs) {
+        btnManageHiddenTabs.style.display = hiddenTabs.length > 0 ? 'block' : 'none';
+    }
+
+    // 非表示タブを除外して表示
+    const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
+
+    // 全て非表示になっていて選択タブがない場合のフォールバック
+    if (visibleTabs.length > 0 && (!currentTabId || !visibleTabs.find(t => t.id === currentTabId))) {
+        currentTabId = visibleTabs[0].id;
+    } else if (visibleTabs.length === 0) {
+        currentTabId = null;
+    }
+
+    visibleTabs.forEach(tab => {
         const tabItem = document.createElement('div');
         tabItem.className = `tab-item ${currentTabId === tab.id ? 'active' : ''}`;
         tabItem.innerHTML = `
@@ -228,9 +248,14 @@ function showTabContextMenu(e, tabId, tabName) {
     hideContextMenu();
 
     const contextMenu = document.getElementById('contextMenu');
+
+    const hiddenTabs = getHiddenTabs();
+    const isHidden = hiddenTabs.includes(tabId);
+
     contextMenu.innerHTML = `
         <div class="context-menu-item" onclick="renameTab(${tabId}, '${escapeHtml(tabName)}'); hideContextMenu();">✏️ タブ名の変更</div>
-        <div class="context-menu-item" onclick="deleteTab(${tabId}); hideContextMenu();" style="color: #ff4444;">🗑️ 削除</div>
+        <div class="context-menu-item" onclick="toggleTabVisibility(${tabId}, true); hideContextMenu();">👁️‍🗨️ このPCでは非表示にする</div>
+        <div class="context-menu-item" onclick="deleteTab(${tabId}); hideContextMenu();" style="color: #ff4444;">🗑️ 完全に削除 (全PC)</div>
     `;
 
     contextMenu.style.display = 'block';
@@ -240,6 +265,39 @@ function showTabContextMenu(e, tabId, tabName) {
     setTimeout(() => {
         document.addEventListener('click', hideContextMenu, { once: true });
     }, 0);
+}
+
+// --- PC固有のタブ表示設定 ---
+function getHiddenTabs() {
+    try {
+        const stored = localStorage.getItem('notest_hidden_tabs');
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function toggleTabVisibility(tabId, hide) {
+    let hiddenTabs = getHiddenTabs();
+
+    if (hide) {
+        if (!hiddenTabs.includes(tabId)) {
+            hiddenTabs.push(tabId);
+        }
+    } else {
+        hiddenTabs = hiddenTabs.filter(id => id !== tabId);
+    }
+
+    localStorage.setItem('notest_hidden_tabs', JSON.stringify(hiddenTabs));
+    renderTabs(); // UIを即座に更新 (activeTabが消えた場合の処理はrenderTabs内に実装済)
+
+    // 現在のタブが変わった場合、セクションを描画し直す
+    if (currentTabId && tabs.find(t => t.id === currentTabId)) {
+        renderPages();
+    } else {
+        document.getElementById('pagesList').innerHTML = '';
+        document.getElementById('sectionsContainer').innerHTML = '';
+    }
 }
 
 // タブ名の変更
@@ -2739,6 +2797,7 @@ async function loadSubscriptionStatus() {
     }
 }
 
+// ==================== サブスクリプション状態の確認と制御 ====================
 async function cancelSubscription() {
     if (!confirm('本当にサブスクリプションを退会しますか？\\n（次回の更新日までは引き続き利用可能です）')) return;
 
@@ -2757,10 +2816,69 @@ async function cancelSubscription() {
     }
 }
 
+// 非表示タブリストの描画関数
+function renderHiddenTabsList() {
+    const container = document.getElementById('hiddenTabsListContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const hiddenTabIds = getHiddenTabs();
+
+    // 現在サーバーに存在するタブのうち、非表示リストに含まれるものだけを抽出
+    const hiddenTabsObjects = tabs.filter(tab => hiddenTabIds.includes(tab.id));
+
+    if (hiddenTabsObjects.length === 0) {
+        container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px 0;">非表示のタブはありません</p>';
+        return;
+    }
+
+    hiddenTabsObjects.forEach(tab => {
+        const item = document.createElement('div');
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        item.style.padding = '10px';
+        item.style.borderBottom = '1px solid #eee';
+
+        item.innerHTML = `
+            <span style="font-weight: 500;">${escapeHtml(tab.name)}</span>
+            <button class="btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="restoreHiddenTab(${tab.id})">再表示</button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// タブを再表示するグローバル関数
+window.restoreHiddenTab = function (tabId) {
+    toggleTabVisibility(tabId, false);
+    renderHiddenTabsList(); // モーダル内のリストを更新
+
+    // 再表示したタブを選択する
+    selectTab(tabId);
+
+    const modalHiddenTabs = document.getElementById('modalHiddenTabs');
+    if (modalHiddenTabs) closeModal(modalHiddenTabs);
+};
+
 // イベントリスナー
 document.addEventListener('DOMContentLoaded', () => {
     // 起動直後にサブスクリプション状態を取得し、必要なら画面をロック
     loadSubscriptionStatus();
+
+    // 非表示タブ管理モーダルのイベント
+    const btnManageHiddenTabs = document.getElementById('btnManageHiddenTabs');
+    const modalHiddenTabs = document.getElementById('modalHiddenTabs');
+    const closeHiddenTabs = document.getElementById('closeHiddenTabs');
+    const btnCloseHiddenTabsModal = document.getElementById('btnCloseHiddenTabsModal');
+
+    if (btnManageHiddenTabs && modalHiddenTabs) {
+        btnManageHiddenTabs.onclick = () => {
+            renderHiddenTabsList();
+            showModal('modalHiddenTabs');
+        };
+    }
+    if (closeHiddenTabs && modalHiddenTabs) closeHiddenTabs.onclick = () => hideModal('modalHiddenTabs');
+    if (btnCloseHiddenTabsModal && modalHiddenTabs) btnCloseHiddenTabsModal.onclick = () => hideModal('modalHiddenTabs');
 
     // タブ作成
     const btnNewTab = document.getElementById('btnNewTab');
