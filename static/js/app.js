@@ -214,11 +214,54 @@ function renderTabs() {
         tabItem.className = `tab-item ${currentTabId === tab.id ? 'active' : ''}`;
         tabItem.innerHTML = `
             <span class="tab-item-name">${escapeHtml(tab.name)}</span>
-            <button class="tab-item-delete" onclick="event.stopPropagation(); deleteTab(${tab.id})">×</button>
         `;
         tabItem.onclick = () => selectTab(tab.id);
+        tabItem.oncontextmenu = (e) => showTabContextMenu(e, tab.id, tab.name);
         tabsList.appendChild(tabItem);
     });
+}
+
+// タブのコンテキストメニュー
+function showTabContextMenu(e, tabId, tabName) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    const contextMenu = document.getElementById('contextMenu');
+    contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="renameTab(${tabId}, '${escapeHtml(tabName)}'); hideContextMenu();">✏️ タブ名の変更</div>
+        <div class="context-menu-item" onclick="deleteTab(${tabId}); hideContextMenu();" style="color: #ff4444;">🗑️ 削除</div>
+    `;
+
+    contextMenu.style.display = 'block';
+    adjustContextMenuPosition(contextMenu, e);
+
+    // クリックでメニューを閉じる
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
+}
+
+// タブ名の変更
+async function renameTab(tabId, oldName) {
+    const newName = prompt('新しいタブ名を入力してください:', oldName);
+    if (!newName || newName.trim() === '' || newName === oldName) return;
+
+    try {
+        await apiCall(`/api/tabs/${tabId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName.trim() })
+        });
+
+        // ローカル状態を更新
+        const tab = tabs.find(t => t.id === tabId);
+        if (tab) {
+            tab.name = newName.trim();
+        }
+        renderTabs();
+    } catch (error) {
+        console.error('Rename tab failed:', error);
+    }
 }
 
 async function selectTab(tabId, preferredPageId = null) {

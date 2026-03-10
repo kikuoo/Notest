@@ -1099,30 +1099,6 @@ body.dark-theme .section-header.notepad-header .section-btn-icon:hover {
     margin-right: 8px;
 }
 
-.tab-item-delete {
-    background: none;
-    border: none;
-    color: #aaa;
-    cursor: pointer;
-    font-size: 18px;
-    padding: 0 6px;
-    line-height: 1;
-    border-radius: 4px;
-    opacity: 0;
-    /* Hide by default for cleaner look */
-    transition: opacity 0.2s, color 0.2s, background-color 0.2s;
-}
-
-.tab-item:hover .tab-item-delete {
-    opacity: 0.7;
-}
-
-.tab-item-delete:hover {
-    opacity: 1 !important;
-    color: #fff;
-    background-color: rgba(255, 59, 48, 0.8);
-    /* Red background on hover */
-}
 
 /* Toggle Switch */
 .toggle-switch {
