@@ -234,6 +234,7 @@ function renderTabs() {
         tabItem.className = `tab-item ${currentTabId === tab.id ? 'active' : ''}`;
         tabItem.innerHTML = `
             <span class="tab-item-name">${escapeHtml(tab.name)}</span>
+            <button class="tab-item-delete" onclick="event.stopPropagation(); deleteTab(${tab.id})" title="タブを削除">×</button>
         `;
         tabItem.onclick = () => selectTab(tab.id);
         tabItem.oncontextmenu = (e) => showTabContextMenu(e, tab.id, tab.name);
