@@ -331,9 +331,10 @@ async function selectTab(tabId, preferredPageId = null) {
     // localStorageに保存
     localStorage.setItem('currentTabId', tabId);
 
-    // タブ選択状態の更新
-    renderTabs();
+    // 検索機能のセットアップ
+    setupSearch();
 
+    renderTabs();
     const pages = tab.pages || [];
     renderPageTabs(pages);
 
@@ -365,6 +366,7 @@ function renderPageTabs(pages) {
             <span class="page-tab-close" onclick="event.stopPropagation(); deletePage(${page.id})">×</span>
         `;
         pageTab.onclick = () => selectPage(page.id);
+        pageTab.oncontextmenu = (e) => showPageContextMenu(e, page.id, page.name);
         tabBar.appendChild(pageTab);
     });
 
@@ -423,8 +425,54 @@ async function deletePage(pageId) {
         console.log(`Page ${pageId} deleted successfully`);
     } catch (error) {
         console.error('Delete page failed:', error);
-        // apiCall内でalertが表示されるので、ここでは何もしない
     }
+}
+
+// ページの名称変更
+async function renamePage(pageId, oldName) {
+    const newName = prompt('新しいページ名を入力してください:', oldName);
+    if (!newName || newName.trim() === '' || newName === oldName) return;
+
+    try {
+        await apiCall(`/api/pages/${pageId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName.trim() })
+        });
+
+        // ローカル状態を更新
+        const tab = tabs.find(t => t.id === currentTabId);
+        if (tab) {
+            const page = tab.pages.find(p => p.id === pageId);
+            if (page) {
+                page.name = newName.trim();
+            }
+            renderPageTabs(tab.pages);
+        }
+    } catch (error) {
+        console.error('Rename page failed:', error);
+    }
+}
+
+// ページのコンテキストメニュー
+function showPageContextMenu(e, pageId, pageName) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+
+    const contextMenu = document.getElementById('contextMenu');
+
+    contextMenu.innerHTML = `
+        <div class="context-menu-item" onclick="renamePage(${pageId}, '${escapeHtml(pageName)}'); hideContextMenu();">✏️ ページ名の変更</div>
+        <div class="context-menu-item" onclick="deletePage(${pageId}); hideContextMenu();" style="color: #ff4444;">🗑️ 削除</div>
+    `;
+
+    contextMenu.style.display = 'block';
+    adjustContextMenuPosition(contextMenu, e);
+
+    // クリックでメニューを閉じる
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 0);
 }
 
 async function selectPage(pageId) {
@@ -1625,7 +1673,7 @@ async function fetchSectionFiles(sectionId) {
                     <div class="file-item"
                          title="${escapeHtml(entry.name)}"
                          onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
-                         ondblclick="downloadStorageFile(${sectionId}, '${escapeHtml(entry.name)}')">
+                         ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')">
                         <div class="file-icon">${icon}</div>
                         <div class="file-info">
                             <div class="file-name">${escapeHtml(entry.name)}</div>
@@ -1693,7 +1741,7 @@ async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
             <div class="file-item"
                  title="${escapeHtml(entry.name)}"
                  onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
-                 ondblclick="openLocalFile(${sectionId}, '${escapeHtml(entry.name)}')">
+                 ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')">
                 <div class="file-icon">${icon}</div>
                 <div class="file-info">
                     <div class="file-name">${escapeHtml(entry.name)}</div>
@@ -1725,7 +1773,7 @@ async function navigateToLocalFolder(sectionId, folderName) {
     }
 }
 
-// ローカルファイルを開く
+// ローカルファイルを開く（ブラウザのタブでプレビュー、現在は未使用にしてOSネイティブ起動に移行）
 async function openLocalFile(sectionId, fileName) {
     const currentHandle = localDirSubHandles[sectionId];
     if (!currentHandle) return;
@@ -1738,6 +1786,70 @@ async function openLocalFile(sectionId, fileName) {
         setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
         alert('ファイルを開けませんでした: ' + e.message);
+    }
+}
+
+// OSネイティブの標準アプリでファイルを開く
+async function openFileNativeOS(sectionId, fileName) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    let basePath = '';
+
+    // 端末ごとのローカル設定があるか確認
+    const localOverrideJSON = localStorage.getItem('local_storage_config_' + sectionId);
+    if (localOverrideJSON) {
+        try {
+            const localOverride = JSON.parse(localOverrideJSON);
+            if (localOverride.path) basePath = localOverride.path;
+        } catch (e) {
+            console.error("Local storage override parse error:", e);
+        }
+    }
+
+    // なければサーバーデータを使用
+    if (!basePath) {
+        const data = typeof section.content_data === 'string'
+            ? JSON.parse(section.content_data || '{}')
+            : (section.content_data || {});
+        basePath = data.path || '';
+    }
+
+    // サブフォルダに移動している場合、履歴から現在のパスを構築
+    const navCtx = sectionNavigationHistory[sectionId];
+    if (navCtx && navCtx.history && navCtx.history.length > 0) {
+        basePath = navCtx.history[navCtx.currentIndex];
+    }
+
+    if (!basePath) {
+        alert('ファイルのパスが特定できませんでした。');
+        return;
+    }
+
+    const fullPath = basePath.endsWith('/') ? `${basePath}${fileName}` : `${basePath}/${fileName}`;
+
+    try {
+        const response = await fetch('/note/api/system/open-local', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ path: fullPath })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || '不明なエラー');
+        }
+
+    } catch (e) {
+        console.error('Failed to open file natively:', e);
+        // エラー時はフォールバックとしてブラウザ上で開くかダウンロードする
+        if (localDirSubHandles[sectionId]) {
+            openLocalFile(sectionId, fileName);
+        } else {
+            downloadStorageFile(sectionId, fileName);
+        }
     }
 }
 

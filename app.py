@@ -15,6 +15,7 @@ import shutil
 import bcrypt
 import secrets
 import stripe
+import sys
 
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
@@ -819,6 +820,35 @@ def get_cloud_storage_paths():
             cloud_paths['onedrive'] = onedrive_win
     
     return jsonify(cloud_paths)
+
+@app.route('/api/system/open-local', methods=['POST'])
+def open_local_file():
+    """OSの標準アプリでローカルファイルを開く"""
+    data = request.json
+    file_path = data.get('path')
+    
+    if not file_path:
+        return jsonify({'error': 'Path is required'}), 400
+        
+    file_path = os.path.expanduser(file_path)
+    file_path = os.path.abspath(file_path)
+    
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+        
+    try:
+        if os.name == 'nt': # Windows
+            os.startfile(file_path)
+        elif os.name == 'posix': # macOS or Linux
+            import subprocess
+            opener = 'open' if sys.platform == 'darwin' else 'xdg-open'
+            subprocess.call([opener, file_path])
+        else:
+            return jsonify({'error': 'OS not supported for auto-open'}), 400
+            
+        return jsonify({'message': 'File opened successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ==================== 認証API ====================
 
