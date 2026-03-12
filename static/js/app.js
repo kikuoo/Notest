@@ -1,6 +1,7 @@
 // グローバル変数
 let currentTabId = null;
 let currentPageId = null;
+let currentWorkspace = 1; // ワークスペースID (1, 2, 3)
 let tabs = [];
 let storageLocations = [];
 let sections = [];
@@ -268,10 +269,11 @@ function showTabContextMenu(e, tabId, tabName) {
     }, 0);
 }
 
-// --- PC固有のタブ表示設定 ---
+// --- PC固有のタブ表示設定 (ワークスペース対応) ---
 function getHiddenTabs() {
     try {
-        const stored = localStorage.getItem('notest_hidden_tabs');
+        const key = `notest_hidden_tabs_ws${currentWorkspace}`;
+        const stored = localStorage.getItem(key);
         return stored ? JSON.parse(stored) : [];
     } catch (e) {
         return [];
@@ -289,8 +291,9 @@ function toggleTabVisibility(tabId, hide) {
         hiddenTabs = hiddenTabs.filter(id => id !== tabId);
     }
 
-    localStorage.setItem('notest_hidden_tabs', JSON.stringify(hiddenTabs));
-    renderTabs(); // UIを即座に更新 (activeTabが消えた場合の処理はrenderTabs内に実装済)
+    const key = `notest_hidden_tabs_ws${currentWorkspace}`;
+    localStorage.setItem(key, JSON.stringify(hiddenTabs));
+    renderTabs(); // UIを即座に更新
 
     // 現在のタブが変わった場合、セクションを描画し直す
     if (currentTabId && tabs.find(t => t.id === currentTabId)) {
@@ -299,6 +302,36 @@ function toggleTabVisibility(tabId, hide) {
         document.getElementById('pagesList').innerHTML = '';
         document.getElementById('sectionsContainer').innerHTML = '';
     }
+}
+
+// ワークスペースの切り替え
+function switchWorkspace(wsId) {
+    currentWorkspace = wsId;
+    localStorage.setItem('notest_current_workspace', wsId);
+
+    renderWorkspaceButtons();
+    renderTabs();
+
+    // タブが切り替わる可能性があるため、現在選択中のタブが消えた場合のケア
+    const hiddenTabs = getHiddenTabs();
+    if (currentTabId && hiddenTabs.includes(currentTabId)) {
+        // 現在のタブが隠れたら、表示されている最初のタブを選択
+        const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
+        if (visibleTabs.length > 0) {
+            selectTab(visibleTabs[0].id);
+        }
+    }
+}
+
+function renderWorkspaceButtons() {
+    const buttons = document.querySelectorAll('.ws-btn');
+    buttons.forEach((btn, index) => {
+        if (index + 1 === currentWorkspace) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
 }
 
 // タブ名の変更
@@ -1027,6 +1060,13 @@ function deleteStorageFileAndHide(sectionId, filename) {
 
 // ページ読み込み完了時の処理
 document.addEventListener('DOMContentLoaded', async () => {
+    // ワークスペースの復元
+    const storedWs = localStorage.getItem('notest_current_workspace');
+    if (storedWs) {
+        currentWorkspace = parseInt(storedWs);
+        renderWorkspaceButtons();
+    }
+
     // テーマ適用
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
