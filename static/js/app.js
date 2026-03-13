@@ -329,8 +329,10 @@ async function switchWorkspace(wsId) {
     const hiddenTabs = getHiddenTabs();
 
     if (wsTabId && tabs.find(t => t.id === parseInt(wsTabId)) && !hiddenTabs.includes(parseInt(wsTabId))) {
+        console.log(`Restoring workspace ${wsId} state: Tab ${wsTabId}, Page ${wsPageId}`);
         await selectTab(parseInt(wsTabId), wsPageId ? parseInt(wsPageId) : null);
     } else {
+        console.log(`Workspace ${wsId} has no saved state or tab is hidden. Selecting first visible tab.`);
         // 保存されていないか非表示の場合、表示されている最初のタブを選択
         const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
         if (visibleTabs.length > 0) {
@@ -1084,7 +1086,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 
 // ページ読み込み完了時の初期化処理
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('App initialization started...');
+    console.log('App initialization started... (v1.2 - Deep Workspace Independence Fix)');
 
     // 1. ワークスペースの復元 (最優先)
     const storedWs = localStorage.getItem('notest_current_workspace');
@@ -1116,7 +1118,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ② サブスク状態とタブを読み込む
     await loadSubscriptionStatus();
-    await loadTabs();
+
+    // タブ情報の取得
+    tabs = await apiCall('/api/tabs');
+
+    // ワークスペース固有の状態を復元
+    const hiddenTabs = getHiddenTabs();
+    const wsTabId = localStorage.getItem(`notest_current_tab_id_ws${currentWorkspace}`);
+    const wsPageId = localStorage.getItem(`notest_current_page_id_ws${currentWorkspace}`);
+
+    if (wsTabId && tabs.find(t => t.id === parseInt(wsTabId)) && !hiddenTabs.includes(parseInt(wsTabId))) {
+        await selectTab(parseInt(wsTabId), wsPageId ? parseInt(wsPageId) : null);
+    } else {
+        const visibleTabs = tabs.filter(t => !hiddenTabs.includes(t.id));
+        if (visibleTabs.length > 0) {
+            await selectTab(visibleTabs[0].id);
+        } else {
+            renderTabs();
+        }
+    }
 
     // 4. History APIトラップ
     setupHistoryTrap();
