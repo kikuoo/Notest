@@ -385,7 +385,6 @@ async function selectTab(tabId, preferredPageId = null) {
     localStorage.setItem(`notest_current_tab_id_ws${currentWorkspace}`, tabId);
 
     // 検索機能のセットアップ
-    setupSearch();
 
     renderTabs();
     const pages = tab.pages || [];
