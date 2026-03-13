@@ -22,7 +22,9 @@
                 <button class="ws-btn" onclick="switchWorkspace(3)">3</button>
             </div>
             <div class="sidebar-header">
-                <h1>WowNote</h1>
+                <h1 id="appTitle">WowNote</h1>
+                <div id="debug-info" style="font-size: 10px; color: #888; margin-top: -10px; margin-bottom: 5px;">v1.3
+                    [WS: <span id="current-ws-display">1</span>]</div>
                 <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
                     <button class="btn-new-tab" id="btnNewTab">+ 新しいタブ</button>
                     <button class="btn-secondary" id="btnManageHiddenTabs"
@@ -331,7 +333,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=1.2"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=1.3"></script>
     <script src="{{ url_for('static', filename='js/file-preview.js') }}?v=1.0"></script>
     <script src="{{ url_for('static', filename='js/image-functions.js') }}?v=1.0"></script>
     <script src="{{ url_for('static', filename='js/notepad-settings.js') }}?v=1.0"></script>

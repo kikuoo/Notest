@@ -348,6 +348,7 @@ async function switchWorkspace(wsId) {
     }
 }
 
+// ワークスペースボタンの表示更新
 function renderWorkspaceButtons() {
     const buttons = document.querySelectorAll('.ws-btn');
     buttons.forEach((btn, index) => {
@@ -357,6 +358,12 @@ function renderWorkspaceButtons() {
             btn.classList.remove('active');
         }
     });
+
+    // デバッグ用の表示を更新
+    const wsDisplay = document.getElementById('current-ws-display');
+    if (wsDisplay) {
+        wsDisplay.textContent = currentWorkspace;
+    }
 }
 
 // タブ名の変更
@@ -1086,7 +1093,10 @@ function deleteStorageFileAndHide(sectionId, filename) {
 
 // ページ読み込み完了時の初期化処理
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('App initialization started... (v1.2 - Deep Workspace Independence Fix)');
+    console.log('App initialization started... (v1.3 - Workspace Debug Mode)');
+
+    // バージョン確認用アラート (一時的)
+    // alert('WowNote Version 1.3 Loaded');
 
     // 1. ワークスペースの復元 (最優先)
     const storedWs = localStorage.getItem('notest_current_workspace');
@@ -1121,6 +1131,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // タブ情報の取得
     tabs = await apiCall('/api/tabs');
+
+    // バージョン表示
+    const title = document.getElementById('appTitle');
+    if (title) title.title = 'Version 1.3';
 
     // ワークスペース固有の状態を復元
     const hiddenTabs = getHiddenTabs();
