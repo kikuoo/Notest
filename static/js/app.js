@@ -148,21 +148,31 @@ async function loadTabs() {
         console.log('Tabs loaded:', tabs);
         renderTabs();
 
-        // localStorageから前回の状態を復元
-        const savedTabId = localStorage.getItem('currentTabId');
+        // localStorageから前回の状態を復元 (ワークスペース固有の設定を優先)
+        const wsTabId = localStorage.getItem(`notest_current_tab_id_ws${currentWorkspace}`);
+        const savedTabId = wsTabId || localStorage.getItem('currentTabId');
         const savedPageId = localStorage.getItem('currentPageId');
 
         if (savedTabId && tabs.find(t => t.id === parseInt(savedTabId))) {
-            // 保存されたタブが存在する場合は復元
-            console.log('Restoring saved tab:', savedTabId);
-            currentTabId = parseInt(savedTabId);
-            await selectTab(currentTabId, savedPageId ? parseInt(savedPageId) : null);
-        } else if (tabs.length > 0 && !currentTabId) {
-            // 保存された状態がない、または無効な場合は最初のタブを選択
-            console.log('Selecting first tab:', tabs[0].id);
-            selectTab(tabs[0].id);
-        } else {
-            console.log('No tabs to select or tab already selected');
+            const tabId = parseInt(savedTabId);
+            const hiddenTabs = getHiddenTabs();
+
+            if (!hiddenTabs.includes(tabId)) {
+                console.log('Restoring saved tab:', tabId);
+                currentTabId = tabId;
+                await selectTab(currentTabId, savedPageId ? parseInt(savedPageId) : null);
+            } else {
+                const visibleTabs = tabs.filter(t => !hiddenTabs.includes(t.id));
+                if (visibleTabs.length > 0) {
+                    await selectTab(visibleTabs[0].id);
+                }
+            }
+        } else if (tabs.length > 0) {
+            const hiddenTabs = getHiddenTabs();
+            const visibleTabs = tabs.filter(t => !hiddenTabs.includes(t.id));
+            if (visibleTabs.length > 0) {
+                await selectTab(visibleTabs[0].id);
+            }
         }
     } catch (e) {
         console.error('Failed to load tabs:', e);
@@ -305,20 +315,29 @@ function toggleTabVisibility(tabId, hide) {
 }
 
 // ワークスペースの切り替え
-function switchWorkspace(wsId) {
+async function switchWorkspace(wsId) {
+    console.log(`Switching to workspace: ${wsId}`);
     currentWorkspace = wsId;
     localStorage.setItem('notest_current_workspace', wsId);
 
     renderWorkspaceButtons();
-    renderTabs();
 
-    // タブが切り替わる可能性があるため、現在選択中のタブが消えた場合のケア
+    // ワークスペース固有の最後に開いていたタブを復元
+    const wsTabId = localStorage.getItem(`notest_current_tab_id_ws${currentWorkspace}`);
     const hiddenTabs = getHiddenTabs();
-    if (currentTabId && hiddenTabs.includes(currentTabId)) {
-        // 現在のタブが隠れたら、表示されている最初のタブを選択
+
+    if (wsTabId && tabs.find(t => t.id === parseInt(wsTabId)) && !hiddenTabs.includes(parseInt(wsTabId))) {
+        await selectTab(parseInt(wsTabId));
+    } else {
+        // 保存されていないか非表示の場合、表示されている最初のタブを選択
         const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
         if (visibleTabs.length > 0) {
-            selectTab(visibleTabs[0].id);
+            await selectTab(visibleTabs[0].id);
+        } else {
+            currentTabId = null;
+            renderTabs();
+            document.getElementById('pagesList').innerHTML = '';
+            document.getElementById('sectionsContainer').innerHTML = '';
         }
     }
 }
@@ -361,8 +380,9 @@ async function selectTab(tabId, preferredPageId = null) {
     const tab = tabs.find(t => t.id === tabId);
     if (!tab) return;
 
-    // localStorageに保存
+    // localStorageに保存 (グローバルおよびワークスペース固有)
     localStorage.setItem('currentTabId', tabId);
+    localStorage.setItem(`notest_current_tab_id_ws${currentWorkspace}`, tabId);
 
     // 検索機能のセットアップ
     setupSearch();
