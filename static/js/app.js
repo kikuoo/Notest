@@ -1082,54 +1082,136 @@ function deleteStorageFileAndHide(sectionId, filename) {
     }
 }
 
-// ページ読み込み完了時の処理
+// ページ読み込み完了時の初期化処理
 document.addEventListener('DOMContentLoaded', async () => {
-    // ワークスペースの復元
+    console.log('App initialization started...');
+
+    // 1. ワークスペースの復元 (最優先)
     const storedWs = localStorage.getItem('notest_current_workspace');
     if (storedWs) {
         currentWorkspace = parseInt(storedWs);
-        renderWorkspaceButtons();
+        console.log('Restored workspace:', currentWorkspace);
+    }
+    renderWorkspaceButtons();
+
+    // 2. 基本設定の適用
+    applySavedTheme();
+    initSidebarToggle();
+    setupSettingsEvents();
+    setupTabManagementEvents();
+    setupDirectoryBrowserEvents();
+
+    // 3. データの読み込み
+    // ① IndexedDBからファイルを先にメモリに読み込む
+    try {
+        const savedHandles = await loadAllFsHandles();
+        for (const { sectionId, handle } of savedHandles) {
+            localDirHandles[sectionId] = handle;
+            localDirSubHandles[sectionId] = handle;
+            sectionNavigationHistory[sectionId] = { history: [handle.name], currentIndex: 0, handles: [handle] };
+        }
+    } catch (e) {
+        console.error('IndexedDB load error:', e);
     }
 
-    // テーマ適用
-    const savedTheme = localStorage.getItem('theme');
+    // ② サブスク状態とタブを読み込む
+    await loadSubscriptionStatus();
+    await loadTabs();
+
+    // 4. History APIトラップ
+    setupHistoryTrap();
+
+    console.log('App initialization completed.');
+});
+
+function applySavedTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-theme');
     }
+}
 
-    // テーマ切り替えボタン（設定モーダル内）
-    const btnToggleTheme = document.getElementById('btnToggleTheme');
+function setupSettingsEvents() {
+    const btnSettings = document.getElementById('btnSettings');
+    const closeSettings = document.getElementById('closeSettings');
+    const btnToggleTheme = document.getElementById('btnToggleThemeInSettings');
+
+    if (btnSettings) btnSettings.onclick = () => {
+        loadSubscriptionStatus();
+        showModal('modalSettings');
+    };
+    if (closeSettings) closeSettings.onclick = () => hideModal('modalSettings');
     if (btnToggleTheme) {
-        btnToggleTheme.addEventListener('click', () => {
+        btnToggleTheme.onclick = () => {
             document.body.classList.toggle('dark-theme');
             const isDark = document.body.classList.contains('dark-theme');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        });
+        };
     }
+
+    const toggleMemo = document.getElementById('toggleMemoField');
+    if (toggleMemo) {
+        const saved = localStorage.getItem('show_memo_field') !== 'false';
+        toggleMemo.checked = saved;
+        document.body.classList.toggle('hide-memo-fields', !saved);
+        toggleMemo.onchange = (e) => {
+            document.body.classList.toggle('hide-memo-fields', !e.target.checked);
+            localStorage.setItem('show_memo_field', e.target.checked);
+        };
+    }
+}
+
+function setupTabManagementEvents() {
+    const btnManageHiddenTabs = document.getElementById('btnManageHiddenTabs');
+    const closeHiddenTabs = document.getElementById('closeHiddenTabs');
+    const btnCloseHiddenTabsModal = document.getElementById('btnCloseHiddenTabsModal');
+
+    if (btnManageHiddenTabs) {
+        btnManageHiddenTabs.onclick = () => {
+            renderHiddenTabsList();
+            showModal('modalHiddenTabs');
+        };
+    }
+    if (closeHiddenTabs) closeHiddenTabs.onclick = () => hideModal('modalHiddenTabs');
+    if (btnCloseHiddenTabsModal) btnCloseHiddenTabsModal.onclick = () => hideModal('modalHiddenTabs');
+
+    const btnNewTab = document.getElementById('btnNewTab');
+    if (btnNewTab) btnNewTab.onclick = () => showModal('modalNewTab');
+
+    document.getElementById('btnCreateTab').onclick = () => {
+        const name = document.getElementById('newTabName').value.trim();
+        if (name) {
+            createTab(name);
+            hideModal('modalNewTab');
+            document.getElementById('newTabName').value = '';
+        }
+    };
+    document.getElementById('closeNewTab').onclick = () => hideModal('modalNewTab');
+    document.getElementById('btnCancelTab').onclick = () => hideModal('modalNewTab');
+
+    document.getElementById('newTabName').onkeypress = (e) => {
+        if (e.key === 'Enter') document.getElementById('btnCreateTab').click();
+    };
+
+    // ページ作成
+    document.getElementById('btnCreatePage').onclick = () => {
+        const name = document.getElementById('newPageName').value.trim();
+        if (name) createPage(name);
+    };
+    document.getElementById('closeNewPage').onclick = () => hideModal('modalNewPage');
+    document.getElementById('btnCancelPage').onclick = () => hideModal('modalNewPage');
 
     // ページ背景の右クリックイベント
     const pageContent = document.getElementById('pageContent');
     if (pageContent) {
         pageContent.addEventListener('contextmenu', showPageContextMenu);
     }
+}
 
-    // ① IndexedDBからハンドルを先にメモリに読み込む
-    try {
-        const savedHandles = await loadAllFsHandles();
-        let loadedCount = 0;
-        for (const { sectionId, handle } of savedHandles) {
-            localDirHandles[sectionId] = handle;
-            localDirSubHandles[sectionId] = handle;
-            sectionNavigationHistory[sectionId] = { history: [handle.name], currentIndex: 0, handles: [handle] };
-            loadedCount++;
-        }
-    } catch (e) {
-        alert('IndexedDB load error: ' + e.message);
-    }
-
-    // ② ハンドル読み込み後にタブ・セクションを描画
-    loadTabs();
-});
+function setupHistoryTrap() {
+    history.replaceState({ isAppBase: true }, '', location.href);
+    history.pushState({ isAppTrap: true }, '', location.href);
+}
 
 // フォルダへの再接続（リロード後のパーミッション再取得）
 async function reconnectFolder(sectionId) {
@@ -2667,12 +2749,7 @@ function selectDirectoryItem(element, path) {
 }
 
 
-// ディレクトリブラウザのイベント設定
-document.addEventListener('DOMContentLoaded', () => {
-    // 既存のDOMContentLoadedに追加するためのコード片。
-    // 実際の実装では下部のDOMContentLoaded内に追加する形になりますが、
-    // ここでは置換で見通しを良くするため関数として定義し、後で呼び出します。
-});
+
 
 // サイドバー機能関連
 function initSidebarToggle() {
@@ -3037,128 +3114,7 @@ window.restoreHiddenTab = function (tabId) {
     if (modalHiddenTabs) closeModal(modalHiddenTabs);
 };
 
-// イベントリスナー
-document.addEventListener('DOMContentLoaded', () => {
-    // 起動直後にサブスクリプション状態を取得し、必要なら画面をロック
-    loadSubscriptionStatus();
 
-    // 非表示タブ管理モーダルのイベント
-    const btnManageHiddenTabs = document.getElementById('btnManageHiddenTabs');
-    const modalHiddenTabs = document.getElementById('modalHiddenTabs');
-    const closeHiddenTabs = document.getElementById('closeHiddenTabs');
-    const btnCloseHiddenTabsModal = document.getElementById('btnCloseHiddenTabsModal');
-
-    if (btnManageHiddenTabs && modalHiddenTabs) {
-        btnManageHiddenTabs.onclick = () => {
-            renderHiddenTabsList();
-            showModal('modalHiddenTabs');
-        };
-    }
-    if (closeHiddenTabs && modalHiddenTabs) closeHiddenTabs.onclick = () => hideModal('modalHiddenTabs');
-    if (btnCloseHiddenTabsModal && modalHiddenTabs) btnCloseHiddenTabsModal.onclick = () => hideModal('modalHiddenTabs');
-
-    // タブ作成
-    const btnNewTab = document.getElementById('btnNewTab');
-    if (btnNewTab) {
-        btnNewTab.onclick = () => showModal('modalNewTab');
-    }
-    document.getElementById('btnCreateTab').onclick = () => {
-        const name = document.getElementById('newTabName').value.trim();
-        if (name) {
-            createTab(name);
-            hideModal('modalNewTab');
-            document.getElementById('newTabName').value = '';
-        }
-    };
-    document.getElementById('closeNewTab').onclick = () => hideModal('modalNewTab');
-    document.getElementById('btnCancelTab').onclick = () => hideModal('modalNewTab');
-
-    // ページ作成
-    document.getElementById('btnCreatePage').onclick = () => {
-        const name = document.getElementById('newPageName').value.trim();
-        if (name) {
-            createPage(name);
-        }
-    };
-    document.getElementById('closeNewPage').onclick = () => hideModal('modalNewPage');
-    document.getElementById('btnCancelPage').onclick = () => hideModal('modalNewPage');
-
-    // 設定
-    // 設定を開いた時に最新の情報を表示
-    const btnSettings = document.getElementById('btnSettings');
-    if (btnSettings) {
-        btnSettings.onclick = () => {
-            loadSubscriptionStatus();
-            showModal('modalSettings');
-        };
-    }
-
-    // 設定内のテーマ切替ボタン
-    const btnToggleThemeInSettings = document.getElementById('btnToggleThemeInSettings');
-    if (btnToggleThemeInSettings) {
-        btnToggleThemeInSettings.onclick = () => {
-            document.body.classList.toggle('dark-theme');
-            const isDark = document.body.classList.contains('dark-theme');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        };
-    }
-    const closeSettings = document.getElementById('closeSettings');
-    if (closeSettings) {
-        closeSettings.onclick = () => hideModal('modalSettings');
-    }
-
-    // ストレージ追加 (廃止)
-    /*
-    document.getElementById('btnAddStorage').onclick = () => showModal('modalAddStorage');
-    document.getElementById('btnSaveStorage').onclick = () => {
-        const name = document.getElementById('storageName').value.trim();
-        const type = document.getElementById('storageType').value;
-        const path = document.getElementById('storagePath').value.trim();
-        if (name && path) {
-            createStorageLocation(name, type, path);
-        } else {
-            alert('名前とパスを入力してください');
-        }
-    };
-    document.getElementById('closeAddStorage').onclick = () => hideModal('modalAddStorage');
-    document.getElementById('btnCancelStorage').onclick = () => hideModal('modalAddStorage');
-    */
-
-    // Enterキーでモーダルを閉じる
-    document.getElementById('newTabName').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') document.getElementById('btnCreateTab').click();
-    });
-    document.getElementById('newPageName').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') document.getElementById('btnCreatePage').click();
-    });
-
-    // 初期化
-    setupDirectoryBrowserEvents();
-    initSidebarToggle();
-    loadTabs();
-
-    // メモ欄表示切替の初期化
-    const memoToggle = document.getElementById('toggleMemoField');
-    const savedMemoVisible = localStorage.getItem('showMemoField');
-
-    // 初期状態の設定（デフォルトはtrue）
-    if (savedMemoVisible === 'false') {
-        memoToggle.checked = false;
-        document.body.classList.add('hide-memo-fields');
-    }
-
-    // トグル変更時の処理
-    memoToggle.addEventListener('change', (e) => {
-        const showMemo = e.target.checked;
-        localStorage.setItem('showMemoField', showMemo);
-
-        if (showMemo) {
-            document.body.classList.remove('hide-memo-fields');
-        } else {
-            document.body.classList.add('hide-memo-fields');
-        }
-    });
-});
 
 // セクション用コンテキストメニュー
 function showSectionContextMenu(e, sectionId) {
