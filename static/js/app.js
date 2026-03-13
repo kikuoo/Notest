@@ -150,8 +150,9 @@ async function loadTabs() {
 
         // localStorageから前回の状態を復元 (ワークスペース固有の設定を優先)
         const wsTabId = localStorage.getItem(`notest_current_tab_id_ws${currentWorkspace}`);
+        const wsPageId = localStorage.getItem(`notest_current_page_id_ws${currentWorkspace}`);
         const savedTabId = wsTabId || localStorage.getItem('currentTabId');
-        const savedPageId = localStorage.getItem('currentPageId');
+        const savedPageId = wsPageId || localStorage.getItem('currentPageId');
 
         if (savedTabId && tabs.find(t => t.id === parseInt(savedTabId))) {
             const tabId = parseInt(savedTabId);
@@ -322,12 +323,13 @@ async function switchWorkspace(wsId) {
 
     renderWorkspaceButtons();
 
-    // ワークスペース固有の最後に開いていたタブを復元
+    // ワークスペース固有の最後に開いていたタブとページを復元
     const wsTabId = localStorage.getItem(`notest_current_tab_id_ws${currentWorkspace}`);
+    const wsPageId = localStorage.getItem(`notest_current_page_id_ws${currentWorkspace}`);
     const hiddenTabs = getHiddenTabs();
 
     if (wsTabId && tabs.find(t => t.id === parseInt(wsTabId)) && !hiddenTabs.includes(parseInt(wsTabId))) {
-        await selectTab(parseInt(wsTabId));
+        await selectTab(parseInt(wsTabId), wsPageId ? parseInt(wsPageId) : null);
     } else {
         // 保存されていないか非表示の場合、表示されている最初のタブを選択
         const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
@@ -335,9 +337,11 @@ async function switchWorkspace(wsId) {
             await selectTab(visibleTabs[0].id);
         } else {
             currentTabId = null;
+            currentPageId = null;
             renderTabs();
             document.getElementById('pagesList').innerHTML = '';
             document.getElementById('sectionsContainer').innerHTML = '';
+            document.getElementById('pageContent').innerHTML = '<div class="empty-state"><p>タブを選択するか、新しいタブを作成してください</p></div>';
         }
     }
 }
@@ -532,6 +536,7 @@ async function selectPage(pageId) {
 
     // localStorageに保存
     localStorage.setItem('currentPageId', pageId);
+    localStorage.setItem(`notest_current_page_id_ws${currentWorkspace}`, pageId);
 
     const page = await apiCall(`/api/pages/${pageId}`);
     sections = page.sections || [];
