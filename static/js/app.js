@@ -19,13 +19,13 @@ window.debugLog = function(msg, isError = false) {
     hud.id = 'debug-hud';
     hud.style.cssText = 'position:fixed;top:10px;left:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.9);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;pointer-events:auto;cursor:move;user-select:none;';
     
-    const browserInfo = `UA: ${navigator.userAgent.substring(0, 40)}... | HTTPS: ${window.isSecureContext}`;
+    const browserInfo = `UA: ${navigator.userAgent.substring(0, 30)}... | HTTPS: ${window.isSecureContext}`;
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.2-picker-diag)</b>' +
+                    '<b>WowNote Debug HUD (v2.3-legacy-fallback)</b>' +
                     '<div style="pointer-events:auto;">' +
-                    '<button onclick="if(window.openDirectoryBrowser) window.openDirectoryBrowser(); event.stopPropagation();" style="background:#070;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Test Picker</button>' +
+                    '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
                     '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button>' +
                     '</div></div>' +
@@ -33,7 +33,26 @@ window.debugLog = function(msg, isError = false) {
                     '<div id="debug-hud-logs" style="pointer-events:auto;cursor:default;user-select:text;"></div>';
     document.body ? document.body.appendChild(hud) : document.documentElement.appendChild(hud);
 
-    // ドラッグ機能の実装 (簡略版)
+    // 古いブラウザ用の非表示input作成
+    const legacyInput = document.createElement('input');
+    legacyInput.type = 'file';
+    legacyInput.id = 'legacy-directory-input';
+    legacyInput.webkitdirectory = true;
+    legacyInput.style.display = 'none';
+    document.body.appendChild(legacyInput);
+    
+    legacyInput.addEventListener('change', (e) => {
+        const files = e.target.files;
+        if (files.length > 0) {
+            const path = files[0].webkitRelativePath.split('/')[0];
+            window.debugLog(`Legacy Selected (approx root): ${path}`);
+            const pathInput = document.getElementById('sectionStoragePath');
+            if (pathInput) pathInput.value = path;
+            alert('フォルダを（レガシー方式で）選択しました。\nそのまま「保存」を押してください。');
+        }
+    });
+
+    // ドラッグ機能
     let isDragging = false;
     let offset = { x: 0, y: 0 };
     hud.addEventListener('mousedown', (e) => {
@@ -48,13 +67,15 @@ window.debugLog = function(msg, isError = false) {
         hud.style.top = (e.clientY + offset.y) + 'px';
         hud.style.right = 'auto';
     });
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        hud.style.opacity = '0.9';
-    });
+    document.addEventListener('mouseup', () => { isDragging = false; hud.style.opacity = '0.9'; });
 })();
 
-window.debugLog('DEBUG: app.js loaded v2.2 (Picker Diag Active)');
+window.openLegacyDirectorySelector = function() {
+    window.debugLog('Opening Legacy Directory Selector...');
+    document.getElementById('legacy-directory-input').click();
+};
+
+window.debugLog('DEBUG: app.js loaded v2.3 (Legacy Fallback Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1247,7 +1268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.2-picker-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.3-legacy-fallback [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -2910,8 +2931,11 @@ window.openDirectoryBrowser = async function() {
             window.debugLog(`Immediate Picker Error: ${e.message}`, true);
             // 特定のエラーの場合はフォールバックを案内
             if (e.message.includes('already active')) {
-                const manual = confirm('ブラウザの選択画面が既に開いているか、お使いの環境で制限されています。\n手動でフォルダ名を入力しますか？');
-                if (manual) return 'MANUAL_FALLBACK';
+                const manual = confirm('ブラウザの選択画面が応答していないか、制限されています。\n「レガシー選択」を試しますか？（通常のファイル選択画面が出ます）');
+                if (manual) {
+                    window.openLegacyDirectorySelector();
+                    return 'HANDLED_BY_LEGACY';
+                }
             }
             throw e;
         });
