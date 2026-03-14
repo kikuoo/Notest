@@ -16,6 +16,9 @@ let sectionNavigationHistory = {};
 const localDirHandles = {}; // { sectionId: FileSystemDirectoryHandle (root) }
 const localDirSubHandles = {}; // { sectionId: FileSystemDirectoryHandle (current) }
 
+// フォルダピッカーの状態管理（多重起動防止用）
+let isFolderPickerActive = false;
+
 // デバイス固有ID（localStorageに永続）→複数PC間で設定を分離する
 function getDeviceId() {
     let id = localStorage.getItem('notest_device_id');
@@ -1770,7 +1773,10 @@ async function pickLocalFolder(sectionId) {
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
+    if (isFolderPickerActive) return;
+
     try {
+        isFolderPickerActive = true;
         const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
         localDirHandles[sectionId] = dirHandle;
         localDirSubHandles[sectionId] = dirHandle;
@@ -1782,6 +1788,8 @@ async function pickLocalFolder(sectionId) {
         await fetchSectionFiles(sectionId);
     } catch (e) {
         if (e.name !== 'AbortError') alert('フォルダの選択に失敗しました: ' + e.message);
+    } finally {
+        isFolderPickerActive = false;
     }
 }
 
@@ -2740,7 +2748,10 @@ async function openDirectoryBrowser() {
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
+    if (isFolderPickerActive) return;
+
     try {
+        isFolderPickerActive = true;
         const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
         // 選択されたハンドルのパスをインプットに設定（表示用）
         const pathInput = document.getElementById('sectionStoragePath');
@@ -2756,6 +2767,8 @@ async function openDirectoryBrowser() {
         }
     } catch (e) {
         if (e.name !== 'AbortError') alert('フォルダの選択に失敗しました: ' + e.message);
+    } finally {
+        isFolderPickerActive = false;
     }
 }
 
