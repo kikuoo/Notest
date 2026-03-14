@@ -1,4 +1,53 @@
 // ファイルプレビュー機能
+let currentPreviewUrl = null;
+let isResizing = false;
+
+// ページ読み込み時にリサイズ機能を初期化
+document.addEventListener('DOMContentLoaded', () => {
+    initPreviewResize();
+});
+
+function initPreviewResize() {
+    const panel = document.getElementById('filePreviewPanel');
+    const handle = document.getElementById('previewResizeHandle');
+    if (!panel || !handle) return;
+
+    // 保存された幅を復元
+    const savedWidth = localStorage.getItem('file_preview_panel_width');
+    if (savedWidth) {
+        panel.style.width = savedWidth + 'px';
+    }
+
+    handle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        panel.classList.add('resizing');
+        document.body.style.cursor = 'ew-resize';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        // 右端が0固定なので、新しい幅 = window.innerWidth - mouseX
+        const newWidth = window.innerWidth - e.clientX;
+        
+        // CSSのmin-width / max-width制限を考慮
+        if (newWidth > 200 && newWidth < window.innerWidth * 0.9) {
+            panel.style.width = newWidth + 'px';
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!isResizing) return;
+        isResizing = false;
+        panel.classList.remove('resizing');
+        document.body.style.cursor = '';
+        
+        // 幅を保存
+        localStorage.setItem('file_preview_panel_width', parseInt(panel.style.width));
+    });
+}
+
 function toggleFilePreview() {
     const panel = document.getElementById('filePreviewPanel');
     const btn = document.getElementById('togglePreviewBtn');
@@ -18,8 +67,6 @@ function closeFilePreview() {
         currentPreviewUrl = null;
     }
 }
-
-let currentPreviewUrl = null;
 
 async function showFilePreview(sectionId, filename) {
     const panel = document.getElementById('filePreviewPanel');
