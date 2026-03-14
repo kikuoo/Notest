@@ -23,7 +23,7 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.3-legacy-fallback)</b>' +
+                    '<b>WowNote Debug HUD (v2.4-file-view-fix)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
@@ -41,14 +41,60 @@ window.debugLog = function(msg, isError = false) {
     legacyInput.style.display = 'none';
     document.body.appendChild(legacyInput);
     
+    window.createMockHandle = function(files, pathPrefix = "") {
+        const rootArr = Array.from(files);
+        const name = pathPrefix.split('/').pop() || (rootArr[0]?.webkitRelativePath.split('/')[0] || "root");
+        return {
+            kind: 'directory',
+            name: name,
+            entries: async function* () {
+                const seen = new Set();
+                for (const file of rootArr) {
+                    const relPath = file.webkitRelativePath;
+                    if (!relPath.startsWith(pathPrefix)) continue;
+                    const tail = relPath.substring(pathPrefix.length + (pathPrefix ? 1 : 0));
+                    if (!tail) continue;
+                    const parts = tail.split('/');
+                    const itemName = parts[0];
+                    if (seen.has(itemName)) continue;
+                    seen.add(itemName);
+                    const isDir = parts.length > 1;
+                    const newPrefix = pathPrefix + (pathPrefix ? '/' : '') + itemName;
+                    yield [itemName, isDir ? window.createMockHandle(rootArr, newPrefix) : {
+                        kind: 'file',
+                        name: itemName,
+                        getFile: async () => file
+                    }];
+                }
+            },
+            getDirectoryHandle: async (subName) => window.createMockHandle(rootArr, pathPrefix + (pathPrefix ? '/' : '') + subName),
+            getFileHandle: async (subName) => {
+                const search = (pathPrefix ? pathPrefix + '/' : '') + subName;
+                const file = rootArr.find(f => f.webkitRelativePath === search);
+                return { kind: 'file', name: subName, getFile: async () => file };
+            },
+            queryPermission: async () => 'granted',
+            requestPermission: async () => 'granted'
+        };
+    };
+
     legacyInput.addEventListener('change', (e) => {
         const files = e.target.files;
         if (files.length > 0) {
-            const path = files[0].webkitRelativePath.split('/')[0];
-            window.debugLog(`Legacy Selected (approx root): ${path}`);
+            const rootName = files[0].webkitRelativePath.split('/')[0];
+            window.debugLog(`Legacy Selected: ${rootName} (${files.length} files)`);
+            const sectionId = parseInt(document.getElementById('editingSectionId')?.value || "0");
             const pathInput = document.getElementById('sectionStoragePath');
-            if (pathInput) pathInput.value = path;
-            alert('フォルダを（レガシー方式で）選択しました。\nそのまま「保存」を押してください。');
+            if (pathInput) pathInput.value = rootName;
+            
+            if (sectionId > 0) {
+                const mockHandle = window.createMockHandle(files, rootName);
+                localDirHandles[sectionId] = mockHandle;
+                localDirSubHandles[sectionId] = mockHandle;
+                sectionNavigationHistory[sectionId] = { history: [rootName], currentIndex: 0, handles: [mockHandle] };
+                window.debugLog(`Injected Mock Handle for Section ${sectionId}`);
+            }
+            alert('フォルダを認識しました。「保存」を押して反映させてください。');
         }
     });
 
@@ -75,7 +121,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v2.3 (Legacy Fallback Active)');
+window.debugLog('DEBUG: app.js loaded v2.4 (File View Fix Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1253,7 +1299,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v2.2-picker-diag)');
+        window.debugLog('App initialization started... (v2.4-file-view-fix)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1268,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.3-legacy-fallback [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.4-file-view-fix [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
