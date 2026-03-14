@@ -308,10 +308,12 @@ function toggleTabVisibility(tabId, hide) {
 
     // 現在のタブが変わった場合、セクションを描画し直す
     if (currentTabId && tabs.find(t => t.id === currentTabId)) {
-        renderPages();
+        renderPageTabs(tabs.find(t => t.id === currentTabId).pages || []);
     } else {
-        document.getElementById('pagesList').innerHTML = '';
-        document.getElementById('sectionsContainer').innerHTML = '';
+        const tabBar = document.getElementById('tabBar');
+        const pageContent = document.getElementById('pageContent');
+        if (tabBar) tabBar.innerHTML = '';
+        if (pageContent) pageContent.innerHTML = '';
     }
 }
 
@@ -341,9 +343,11 @@ async function switchWorkspace(wsId) {
             currentTabId = null;
             currentPageId = null;
             renderTabs();
-            document.getElementById('pagesList').innerHTML = '';
-            document.getElementById('sectionsContainer').innerHTML = '';
-            document.getElementById('pageContent').innerHTML = '<div class="empty-state"><p>タブを選択するか、新しいタブを作成してください</p></div>';
+            const tabBar = document.getElementById('tabBar');
+            const pageContent = document.getElementById('pageContent');
+            if (tabBar) tabBar.innerHTML = '';
+            if (pageContent) pageContent.innerHTML = '';
+            if (pageContent) pageContent.innerHTML = '<div class="empty-state"><p>タブを選択するか、新しいタブを作成してください</p></div>';
         }
     }
 }
