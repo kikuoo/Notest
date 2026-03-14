@@ -2070,15 +2070,8 @@ async function fetchSectionFiles(sectionId) {
     }
 
     // === サーバーサイドパス指定の場合（ローカルハンドルがない場合） ===
-    // もし storage_type が 'local' なら、サーバーに問い合わせずここで警告を出す
-    if (data.storage_type === 'local') {
-        listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #999;">
-            ローカルフォルダが未接続です。<br>
-            右上の「⋮」メニューの「設定」にある「📁 フォルダを選択」から、対象のフォルダを再選択してください。<br>
-            <small style="color:#d32f2f; display:block; margin-top:8px;">※URLが「http://」で通信が保護されていない場合、ローカルフォルダはブラウザのセキュリティ制限により機能しません。「https://」でアクセスしてください。</small>
-        </div>`;
-        return;
-    }
+    // もし storage_type が 'local' の場合も、パスがあればサーバー経由の取得を試みる
+    // これにより、サーバー上のフォルダ指定を永続的に利用可能にする
 
     if (data.path) {
         try {
@@ -3001,12 +2994,17 @@ window.openDirectoryBrowser = async function() {
     try {
         const result = await pickerPromise;
         if (result === 'MANUAL_FALLBACK') {
-            const name = prompt('フォルダの表示名を入力してください（例: Work, Documents）:');
-            if (name) {
-                window.debugLog(`Manual fallback name: ${name}`);
-                const pathInput = document.getElementById('sectionStoragePath');
-                if (pathInput) pathInput.value = name;
-                alert('名前を設定しました。保存ボタンを押してください。\n※このモードではブラウザのリロード後に再度選択が必要になる場合があります。');
+            const manualChoice = confirm('手動入力を行いますか？\n「OK」：手動でパスを入力\n「キャンセル」：サーバー上のフォルダから選択（永続化に最適）');
+            if (manualChoice) {
+                const name = prompt('フォルダのパスまたは名前を入力してください:');
+                if (name) {
+                    const pathInput = document.getElementById('sectionStoragePath');
+                    if (pathInput) pathInput.value = name;
+                    alert('設定しました。下の「保存」ボタンを押してください。\n※サーバー上の絶対パスを入力すれば、次回から選択不要になります。');
+                }
+            } else {
+                showModal('modalDirectoryBrowser');
+                loadDirectory('~');
             }
             return;
         }
@@ -3168,13 +3166,13 @@ function setupDirectoryBrowserEvents() {
 
         // 端末ごとのローカルフォルダ設定機能
         if (storageType === 'local') {
-            // ローカルフォルダの場合は端末のブラウザ(localStorage)にのみフルパスを記憶させる
+            // ローカルフォルダの場合は端末のブラウザ(localStorage)にのみフルパスを記憶させる（他PCとの競合防止用）
             localStorage.setItem('local_storage_config_' + sectionId, JSON.stringify({
                 storage_type: 'local',
                 path: path
             }));
-            // ※クラウド上のDBには「これはローカル設定である」というフラグだけ送り、他PCのパスを上書き破壊しないよう空文字にする
-            dbPath = '';
+            // クラウド上のDBにもパスを保存（デフォルトのフォールバックとして機能し、永続化を可能にする）
+            dbPath = path;
         } else {
             // ローカル以外のクラウドストレージ（OneDrive等）に変更された場合は、現在のローカル設定を破棄
             localStorage.removeItem('local_storage_config_' + sectionId);
