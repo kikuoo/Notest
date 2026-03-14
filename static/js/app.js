@@ -23,7 +23,7 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.9-universal-persistence)</b>' +
+                    '<b>WowNote Debug HUD (v3.0-persistence-clarity)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
@@ -121,7 +121,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v2.9 (Universal Persistence Active)');
+window.debugLog('DEBUG: app.js loaded v3.0 (Persistence Clarity Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1299,7 +1299,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v2.9-universal-persistence)');
+        window.debugLog('App initialization started... (v3.0-persistence-clarity)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.9-universal-persistence [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v3.0-persistence-clarity [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -2061,9 +2061,16 @@ async function fetchSectionFiles(sectionId) {
             return;
         } else {
             // 未許可、またはエラー完了時 → 再接続ボタンを表示（クリックでrequestPermission）
-            listEl.innerHTML = `<div style="padding:12px;">
-                <button class="btn-primary" onclick="reconnectFolder(${sectionId})">🔗 「${escapeHtml(currentHandle.name)}」に再接続</button>
-                <div style="margin-top:6px;font-size:12px;color:#999;">リロード後はフォルダへの再接続が必要です。</div>
+            listEl.innerHTML = `<div style="padding: 20px; text-align: center; background: #f8f9fa; border: 1px dashed #ddd; border-radius: 8px; margin: 10px;">
+                <div style="font-size: 14px; margin-bottom: 10px; font-weight: bold; color: #333;">🔒 PCフォルダのアクセス保護</div>
+                <div style="font-size: 12px; color: #666; margin-bottom: 15px; line-height: 1.5;">
+                    ブラウザのセキュリティ制限により、リロード後は再度アクセス許可が必要です。<br>
+                    下のボタンを押して「許可」を選択してください。
+                </div>
+                <button class="btn-primary" onclick="reconnectFolder(${sectionId})" style="padding: 8px 20px;">🔗 アクセスを許可する</button>
+                <div style="margin-top: 10px; font-size: 11px; color: #999;">
+                    対象: ${escapeHtml(currentHandle.name)}
+                </div>
             </div>`;
             return;
         }
@@ -2972,12 +2979,19 @@ window.configureSection = function(sectionId) {
 
 
 
-// フォルダ参照ボタン - サーバー/PCのフォルダを選択
-// v2.9: リロード対策のため、サーバー側の選択画面 (Persistent) をデフォルトにする
+// フォルダ参照ボタン - どちらを参照するか選択させる (v3.0)
 window.openDirectoryBrowser = async function() {
-    window.debugLog('openDirectoryBrowser called (v2.9-universal)');
-    showModal('modalDirectoryBrowser');
-    loadDirectory('~');
+    window.debugLog('openDirectoryBrowser called (v3.0)');
+    const choice = confirm('どのフォルダを選択しますか？\n\n「OK」: 自分のPCのフォルダ (普通はこちら)\n「キャンセル」: サーバー上のフォルダ (Xserver等の同期フォルダ)');
+    
+    if (choice) {
+        // PCのフォルダ
+        window.openNativeBrowserPicker();
+    } else {
+        // サーバーのフォルダ
+        showModal('modalDirectoryBrowser');
+        loadDirectory('~');
+    }
 }
 
 // 元々のブラウザ標準ピッカー (リロードで消えるため非推奨とした)
