@@ -190,17 +190,11 @@ async function saveEditedFile(sectionId, filename) {
     btnSave.textContent = '保存中...';
 
     try {
-        // バックエンド経由で保存を試みる
-        const response = await fetch(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}/save`, {
+        // バックエンド経由で保存を試みる (apiCallを使用)
+        await apiCall(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}/save`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: content })
         });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || '保存に失敗しました');
-        }
 
         alert('ファイルを保存しました');
         
@@ -220,7 +214,7 @@ async function saveEditedFile(sectionId, filename) {
 
     } catch (e) {
         console.error('Save error:', e);
-        alert('保存エラー: ' + e.message);
+        // apiCall内でアラートは既に出ているはずだが、念のため
     } finally {
         btnSave.disabled = false;
         btnSave.textContent = originalText;

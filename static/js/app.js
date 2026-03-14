@@ -566,25 +566,45 @@ async function selectTab(tabId, preferredPageId = null) {
 // ページ関連
 function renderPageTabs(pages) {
     const tabBar = document.getElementById('tabBar');
-    tabBar.innerHTML = '';
+    if (!tabBar) return;
+    
+    // 全体を書き換えるのではなく、既存のタブがある場合はクラスの更新だけに止めることを検討
+    // しかし現状は再生成しているので、最小限の負荷にする
+    const fragment = document.createDocumentFragment();
 
     pages.forEach(page => {
         const pageTab = document.createElement('div');
         pageTab.className = `page-tab ${currentPageId === page.id ? 'active' : ''}`;
+        pageTab.dataset.pageId = page.id;
         pageTab.innerHTML = `
             <span>${escapeHtml(page.name)}</span>
             <span class="page-tab-close" onclick="event.stopPropagation(); deletePage(${page.id})">×</span>
         `;
         pageTab.onclick = () => selectPage(page.id);
         pageTab.oncontextmenu = (e) => showPageContextMenu(e, page.id, page.name);
-        tabBar.appendChild(pageTab);
+        fragment.appendChild(pageTab);
     });
 
     const newPageBtn = document.createElement('button');
     newPageBtn.className = 'btn-new-page';
     newPageBtn.textContent = '+ ページ';
     newPageBtn.onclick = () => showModal('modalNewPage');
-    tabBar.appendChild(newPageBtn);
+    fragment.appendChild(newPageBtn);
+    
+    tabBar.innerHTML = '';
+    tabBar.appendChild(fragment);
+}
+
+// アクティブなページタブの表示を更新する
+function updateActivePageTab() {
+    const tabs = document.querySelectorAll('.page-tab');
+    tabs.forEach(tab => {
+        if (parseInt(tab.dataset.pageId) === currentPageId) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
 }
 
 async function createPage(name) {
@@ -693,16 +713,15 @@ async function selectPage(pageId) {
     localStorage.setItem('currentPageId', pageId);
     localStorage.setItem(`notest_current_page_id_ws${currentWorkspace}`, pageId);
 
-    const page = await apiCall(`/api/pages/${pageId}`);
-    sections = page.sections || [];
-    renderPageContent();
-    // renderPageTabsはselectTabまたは初期化時、あるいはページ追加・削除時のみで十分。
-    // selectPageごとに呼び出す必要はないはずだが、アクティブ状態の更新のために必要なら最小限にする。
-    const activeTab = tabs.find(t => t.id === currentTabId);
-    if (activeTab) {
-        // 全体を再レンダリングせず、アクティブクラスの付け替えだけにするのが理想だが
-        // 現状の設計に合わせて一応呼んでおく（ただしボトルネックならここを修正）
-        renderPageTabs(activeTab.pages || []);
+    try {
+        const page = await apiCall(`/api/pages/${pageId}`);
+        sections = page.sections || [];
+        renderPageContent();
+        
+        // 全体を再レンダリングせず、アクティブクラスの付け替えだけにする
+        updateActivePageTab();
+    } catch (error) {
+        console.error('Select page failed:', error);
     }
 }
 
@@ -2030,9 +2049,10 @@ async function fetchSectionFiles(sectionId) {
                 return `
                     <div class="file-item"
                          title="${escapeHtml(entry.name)}"
-                         onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
-                         ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')"
-                         oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(entry.name)}')">
+                         data-filename="${escapeHtml(entry.name)}"
+                         onclick="showFilePreview(${sectionId}, this.dataset.filename)"
+                         ondblclick="openFileNativeOS(${sectionId}, this.dataset.filename)"
+                         oncontextmenu="showFileContextMenu(event, ${sectionId}, this.dataset.filename)">
                         <div class="file-icon">${icon}</div>
                         <div class="file-info">
                             <div class="file-name">${escapeHtml(entry.name)}</div>
@@ -2117,9 +2137,10 @@ async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
         return `
             <div class="file-item"
                  title="${escapeHtml(entry.name)}"
-                 onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
-                 ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')"
-                 oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(entry.name)}')">
+                 data-filename="${escapeHtml(entry.name)}"
+                 onclick="showFilePreview(${sectionId}, this.dataset.filename)"
+                 ondblclick="openFileNativeOS(${sectionId}, this.dataset.filename)"
+                 oncontextmenu="showFileContextMenu(event, ${sectionId}, this.dataset.filename)">
                 <div class="file-icon">${icon}</div>
                 <div class="file-info">
                     <div class="file-name">${escapeHtml(entry.name)}</div>
@@ -2176,22 +2197,13 @@ async function openFileNativeOS(sectionId, fileName) {
     if (!fullPath) return;
 
     try {
-        const response = await fetch('/note/api/system/open-local', {
+        await apiCall('/api/system/open-local', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ path: fullPath })
         });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || '不明なエラー');
-        }
-
     } catch (e) {
         console.error('Failed to open file natively:', e);
-        // エラー時はフォールバックとしてブラウザ上で開くかダウンロードする
+        // エラー時はフォールバックとしてブラウザ上で開く
         if (localDirSubHandles[sectionId]) {
             openLocalFile(sectionId, fileName);
         } else {
@@ -2203,6 +2215,7 @@ async function openFileNativeOS(sectionId, fileName) {
 // ヘルパー: ファイルのフルパスを取得
 async function getFullPathForFile(sectionId, fileName) {
     const section = sections.find(s => s.id === sectionId);
+    if (!section) return null;
     let basePath = '';
 
     // 端末ごとのローカル設定があるか確認
@@ -2241,21 +2254,16 @@ async function getFullPathForFile(sectionId, fileName) {
 // 特定のプログラムでファイルを開く
 async function openFileWithProgram(sectionId, fileName, program) {
     const fullPath = await getFullPathForFile(sectionId, fileName);
-    if (!fullPath) return;
+    if (!fullPath) {
+        alert('ファイルのフルパスを取得できませんでした');
+        return;
+    }
 
     try {
-        const response = await fetch('/note/api/system/open-local-with', {
+        await apiCall('/api/system/open-local-with', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ path: fullPath, program: program })
         });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || '不明なエラー');
-        }
     } catch (e) {
         console.error('Failed to open file with program:', e);
         alert('プログラムで開けませんでした: ' + e.message);
@@ -2631,16 +2639,16 @@ function showFileContextMenu(e, sectionId, filename) {
     contextMenu.style.left = `${e.clientX}px`;
     contextMenu.style.top = `${e.clientY}px`;
 
-    const downloadUrl = `${window.location.origin}/api/sections/${sectionId}/files/${encodeURIComponent(filename)}`;
     const isZipFile = filename.toLowerCase().endsWith('.zip');
+    const escapedFilename = escapeHtml(filename);
 
     let menuItems = `
-        <div class="context-menu-item" onclick="openFileNativeOS(${sectionId}, '${escapeHtml(filename)}'); hideContextMenu();">🚀 開く</div>
+        <div class="context-menu-item" data-filename="${escapedFilename}" onclick="openFileNativeOS(${sectionId}, this.dataset.filename); hideContextMenu();">🚀 開く</div>
         <div class="context-menu-item submenu-parent">
             🛠 プログラムを選択して開く
             <div class="context-submenu">
-                <div class="context-menu-item" onclick="openFileWithProgram(${sectionId}, '${escapeHtml(filename)}', 'vscode'); hideContextMenu();">Visual Studio Code</div>
-                <div class="context-menu-item" onclick="openFileWithProgram(${sectionId}, '${escapeHtml(filename)}', 'textedit'); hideContextMenu();">テキストエディタ</div>
+                <div class="context-menu-item" data-filename="${escapedFilename}" onclick="openFileWithProgram(${sectionId}, this.dataset.filename, 'vscode'); hideContextMenu();">Visual Studio Code</div>
+                <div class="context-menu-item" data-filename="${escapedFilename}" onclick="openFileWithProgram(${sectionId}, this.dataset.filename, 'textedit'); hideContextMenu();">テキストエディタ</div>
             </div>
         </div>
         <div class="context-menu-divider"></div>
