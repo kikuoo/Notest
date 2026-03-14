@@ -1773,9 +1773,20 @@ async function pickLocalFolder(sectionId) {
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
+    const btn = document.querySelector(`button[onclick="reconnectFolder(${sectionId})"]`);
+    if (btn) {
+        btn.style.backgroundColor = '#e0f0ff';
+        setTimeout(() => btn.style.backgroundColor = '', 200);
+    }
+
     console.log('pickLocalFolder called, isFolderPickerActive:', isFolderPickerActive);
     if (isFolderPickerActive) {
-        console.warn('Folder picker already active, ignoring click');
+        alert('フォルダ選択が既に進行中です。しばらく待ってから再度お試しください。');
+        return;
+    }
+
+    if (typeof window.showDirectoryPicker !== 'function') {
+        alert('エラー: このブラウザの showDirectoryPicker が無効、または非対応です。');
         return;
     }
 
@@ -2768,9 +2779,23 @@ async function openDirectoryBrowser() {
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
+    const btn = document.getElementById('btnBrowseSectionPath');
+    if (btn) {
+        btn.style.backgroundColor = '#e0f0ff';
+        setTimeout(() => btn.style.backgroundColor = '', 200);
+    }
+
+    // デバッグ用アラート
+    alert('フォルダ選択(参照ボタン)のクリックを検知しました');
+
     console.log('openDirectoryBrowser called, isFolderPickerActive:', isFolderPickerActive);
     if (isFolderPickerActive) {
-        console.warn('Folder picker already active, ignoring click');
+        alert('フォルダ選択が既に進行中です。もし、ダイアログが表示されていない場合は1分待ってから再度お試しください。');
+        return;
+    }
+
+    if (typeof window.showDirectoryPicker !== 'function') {
+        alert('エラー: このブラウザの showDirectoryPicker が無効、または非対応です。HTTPS環境であることをご確認ください。');
         return;
     }
 
@@ -2997,7 +3022,13 @@ function setupDirectoryBrowserEvents() {
         }
     };
 
-    document.getElementById('btnBrowseSectionPath').onclick = () => openDirectoryBrowser();
+    const btnBrowse = document.getElementById('btnBrowseSectionPath');
+    if (btnBrowse) {
+        btnBrowse.addEventListener('click', () => {
+            console.log('btnBrowseSectionPath addEventListener triggered');
+            openDirectoryBrowser();
+        });
+    }
 
     // ディレクトリブラウザモーダル
     document.getElementById('closeDirectoryBrowser').onclick = () => hideModal('modalDirectoryBrowser');
