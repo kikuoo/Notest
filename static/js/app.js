@@ -23,7 +23,7 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.4-file-view-fix)</b>' +
+                    '<b>WowNote Debug HUD (v2.6-native-open)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
@@ -1299,7 +1299,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v2.4-file-view-fix)');
+        window.debugLog('App initialization started... (v2.6-native-open)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.4-file-view-fix [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.6-native-open [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -2105,7 +2105,8 @@ async function fetchSectionFiles(sectionId) {
                     <div class="file-item"
                          title="${escapeHtml(entry.name)}"
                          onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
-                         ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')">
+                         ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')"
+                         oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(entry.name)}')">
                         <div class="file-icon">${icon}</div>
                         <div class="file-info">
                             <div class="file-name">${escapeHtml(entry.name)}</div>
@@ -2173,7 +2174,8 @@ async function fetchLocalFiles(sectionId, dirHandle, viewMode) {
             <div class="file-item"
                  title="${escapeHtml(entry.name)}"
                  onclick="showFilePreview(${sectionId}, '${escapeHtml(entry.name)}')"
-                 ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')">
+                 ondblclick="openFileNativeOS(${sectionId}, '${escapeHtml(entry.name)}')"
+                 oncontextmenu="showFileContextMenu(event, ${sectionId}, '${escapeHtml(entry.name)}')">
                 <div class="file-icon">${icon}</div>
                 <div class="file-info">
                     <div class="file-name">${escapeHtml(entry.name)}</div>
