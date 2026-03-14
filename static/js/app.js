@@ -4,8 +4,11 @@
     hud.id = 'debug-hud';
     hud.style.cssText = 'position:fixed;top:10px;left:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.9);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;pointer-events:auto;';
     hud.innerHTML = '<div style="display:flex;justify-content:space-between;border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;">' +
-                    '<b>WowNote Debug HUD (v1.7-diag)</b>' +
-                    '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button></div>' +
+                    '<b>WowNote Debug HUD (v1.8-final-diag)</b>' +
+                    '<div>' +
+                    '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET: isFolderPickerActive=false\'); event.stopPropagation();" title="Reset Picker State" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
+                    '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button>' +
+                    '</div></div>' +
                     '<div id="debug-hud-logs"></div>';
     document.body ? document.body.appendChild(hud) : document.documentElement.appendChild(hud);
 })();
@@ -669,6 +672,16 @@ function renderPageContent() {
     addSectionBtn.onclick = (e) => {
         window.debugLog('addSectionBtn.onclick TRIGGERED');
         e.stopPropagation();
+        
+        // ボタンの位置を取得してドロップダウンの表示位置を決定 (position: fixed 用)
+        const rect = addSectionBtn.getBoundingClientRect();
+        const dropdown = document.getElementById('sectionDropdown');
+        if (dropdown) {
+            dropdown.style.top = `${rect.bottom + 10}px`;
+            dropdown.style.left = `${rect.right - 200}px`; // 幅200px想定
+            window.debugLog(`Positioning dropdown at: top=${dropdown.style.top}, left=${dropdown.style.left}`);
+        }
+
         if (typeof window.toggleSectionDropdown === 'function') {
             window.toggleSectionDropdown(e);
         } else {
@@ -1193,7 +1206,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v1.7-diag)');
+        window.debugLog('App initialization started... (v1.8-final-diag)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1208,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v1.7-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v1.8-final-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -1508,7 +1521,9 @@ async function changeSectionType(sectionId) {
 
 window.deleteSection = async function(sectionId) {
     window.debugLog(`deleteSection called: ID=${sectionId}`);
-    if (!confirm('このファイルビューを削除しますか？')) {
+    const result = confirm('このファイルビューを削除しますか？');
+    window.debugLog(`confirm() result: ${result}`);
+    if (!result) {
         window.debugLog('Delete cancelled by user');
         return;
     }

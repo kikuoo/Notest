@@ -25,9 +25,8 @@
 }
 
 .section-dropdown {
-    position: absolute;
-    top: 60px;
-    right: 0;
+    position: fixed;
+    /* 位置はJSで動的に計算 */
     background: white;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -36,7 +35,7 @@
     visibility: hidden;
     transform: translateY(-10px);
     transition: all 0.3s ease;
-    z-index: 10001;
+    z-index: 1000001; /* HUDより上か同等 */
 }
 
 .section-dropdown.show {
