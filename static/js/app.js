@@ -23,7 +23,7 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.8-persistence-fix)</b>' +
+                    '<b>WowNote Debug HUD (v2.9-universal-persistence)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
@@ -121,7 +121,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v2.8 (Persistence Fix Active)');
+window.debugLog('DEBUG: app.js loaded v2.9 (Universal Persistence Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1299,7 +1299,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v2.8-persistence-fix)');
+        window.debugLog('App initialization started... (v2.9-universal-persistence)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.8-persistence-fix [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.9-universal-persistence [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -2127,9 +2127,9 @@ async function fetchSectionFiles(sectionId) {
                         以下のいずれかで再度指定してください。
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
-                        <button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="window.openDirectoryBrowser()">📁 モダン選択 (推薦)</button>
+                        <button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="window.openDirectoryBrowser()">📁 フォルダを参照 (再構築)</button>
+                        <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="window.openNativeBrowserPicker()">🌐 ブラウザ標準選択 (一時的)</button>
                         <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="window.openLegacyDirectorySelector()">☁️ 手動選択 (レガシー)</button>
-                        <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="showModal('modalDirectoryBrowser'); loadDirectory('~');">🖥 サーバーから選択</button>
                     </div>
                 </div>`;
             } else {
@@ -2972,65 +2972,43 @@ window.configureSection = function(sectionId) {
 
 
 
-// フォルダ参照ボタン - ローカルPCのフォルダを選択
+// フォルダ参照ボタン - サーバー/PCのフォルダを選択
+// v2.9: リロード対策のため、サーバー側の選択画面 (Persistent) をデフォルトにする
 window.openDirectoryBrowser = async function() {
-    window.debugLog('openDirectoryBrowser called (v1.9)');
+    window.debugLog('openDirectoryBrowser called (v2.9-universal)');
+    showModal('modalDirectoryBrowser');
+    loadDirectory('~');
+}
+
+// 元々のブラウザ標準ピッカー (リロードで消えるため非推奨とした)
+window.openNativeBrowserPicker = async function() {
+    window.debugLog('openNativeBrowserPicker called (Legacy-Transient)');
     
     // ユーザージェスチャを即座に使用 (最優先)
     let pickerPromise = null;
     const hasApi = 'showDirectoryPicker' in window && typeof window.showDirectoryPicker === 'function';
     
-    if (hasApi && !window.location.protocol.startsWith('https') && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-        window.debugLog('WARNING: showDirectoryPicker usually requires HTTPS/Localhost', true);
-    }
-
     if (hasApi) {
         window.debugLog('Attempting window.showDirectoryPicker...');
         pickerPromise = window.showDirectoryPicker({ mode: 'read' }).catch(e => {
-            window.debugLog(`Immediate Picker Error: ${e.message}`, true);
-            // 特定のエラーの場合はフォールバックを案内
-            if (e.message.includes('already active')) {
-                const manual = confirm('ブラウザの選択画面が応答していないか、制限されています。\n「レガシー選択」を試しますか？（通常のファイル選択画面が出ます）');
-                if (manual) {
-                    window.openLegacyDirectorySelector();
-                    return 'HANDLED_BY_LEGACY';
-                }
+            window.debugLog(`Picker Error: ${e.message}`, true);
+            if (e.message.indexOf('already active') !== -1) {
+                alert('ブラウザの選択画面が既に応答を待っています。');
             }
             throw e;
         });
     } else {
         window.debugLog('ERROR: showDirectoryPicker NOT supported', true);
-        const manual = confirm('このブラウザはフォルダ選択に対応していません。\n手動でフォルダ名（名前のみ）を入力しますか？');
-        if (manual) pickerPromise = Promise.resolve('MANUAL_FALLBACK');
-        else return;
+        alert('このブラウザは標準フォルダ選択に対応していません。「サーバーから選択」をお使いください。');
+        return;
     }
 
-    if (isFolderPickerActive) {
-        window.debugLog('WARNING: Picker state already true. Resetting to try again.');
-        isFolderPickerActive = false; 
-    }
-    
+    if (isFolderPickerActive) isFolderPickerActive = false; 
     isFolderPickerActive = true;
-    try {
-        const result = await pickerPromise;
-        if (result === 'MANUAL_FALLBACK') {
-            const manualChoice = confirm('手動入力を行いますか？\n「OK」：手動でパスを入力\n「キャンセル」：サーバー上のフォルダから選択（永続化に最適）');
-            if (manualChoice) {
-                const name = prompt('フォルダのパスまたは名前を入力してください:');
-                if (name) {
-                    const pathInput = document.getElementById('sectionStoragePath');
-                    if (pathInput) pathInput.value = name;
-                    alert('設定しました。下の「保存」ボタンを押してください。\n※サーバー上の絶対パスを入力すれば、次回から選択不要になります。');
-                }
-            } else {
-                showModal('modalDirectoryBrowser');
-                loadDirectory('~');
-            }
-            return;
-        }
 
-        const dirHandle = result;
-        window.debugLog(`Folder selected: ${dirHandle.name}`);
+    try {
+        const dirHandle = await pickerPromise;
+        window.debugLog(`Native Folder selected: ${dirHandle.name}`);
         
         const pathInput = document.getElementById('sectionStoragePath');
         if (pathInput) pathInput.value = dirHandle.name;
@@ -3043,14 +3021,10 @@ window.openDirectoryBrowser = async function() {
             window.debugLog('Handle saved.');
         }
     } catch (e) {
-        if (e.name === 'AbortError') {
-            window.debugLog('Picker cancelled');
-        } else {
-            window.debugLog(`Catch: ${e.message}`, true);
-        }
+        if (e.name !== 'AbortError') window.debugLog(`Catch: ${e.message}`, true);
     } finally {
         isFolderPickerActive = false;
-        window.debugLog('openDirectoryBrowser FINISHED');
+        window.debugLog('openNativeBrowserPicker FINISHED');
     }
 }
 

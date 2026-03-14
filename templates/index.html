@@ -214,6 +214,9 @@
             </div>
             <div class="modal-actions" style="margin-top: 0; padding-top: 15px; border-top: 1px solid #eee;">
                 <button class="btn-secondary" id="btnCreateNewFolder" style="margin-right: auto;">+ 新規フォルダ</button>
+                <div style="margin-right: 10px; font-size: 11px; color: #666; cursor: pointer; text-decoration: underline;" onclick="hideModal('modalDirectoryBrowser'); window.openNativeBrowserPicker();">
+                    ブラウザ標準の選択画面を使う (非推奨)
+                </div>
                 <button class="btn-primary" id="btnSelectDirectory">このフォルダを選択</button>
                 <button class="btn-secondary" id="btnCancelDirectoryBrowser">キャンセル</button>
             </div>
