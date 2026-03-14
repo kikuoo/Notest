@@ -149,7 +149,7 @@ async function apiCall(url, options = {}) {
 
     url = window.getApiUrl(url);
     try {
-        console.log(`API Call: ${url}`, options);
+        window.debugLog(`API Call: ${url}`);
         const response = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
@@ -165,16 +165,16 @@ async function apiCall(url, options = {}) {
                     errorMessage = errorData.error;
                 }
             } catch (e) {
-                // JSON parse failed, use default message
+                // Ignore
             }
-            console.error(`API Error (${url}):`, errorMessage);
+            window.debugLog(`API Error (${url}): ${errorMessage}`, true);
             throw new Error(errorMessage);
         }
         const data = await response.json();
-        console.log(`API Success (${url}):`, data);
+        window.debugLog(`API Success (${url})`);
         return data;
     } catch (error) {
-        console.error('API call failed:', error);
+        window.debugLog(`API Failed (${url}): ${error.message}`, true);
         if (showAlert) {
             alert('エラーが発生しました: ' + error.message);
         }
@@ -805,10 +805,15 @@ function renderSectionContent(section) {
 }
 
 // ドロップダウンメニューの表示/非表示を切り替え
-function toggleSectionDropdown() {
+function toggleSectionDropdown(e) {
+    if (e) e.stopPropagation();
+    window.debugLog('toggleSectionDropdown called');
     const dropdown = document.getElementById('sectionDropdown');
     if (dropdown) {
         dropdown.classList.toggle('show');
+        window.debugLog(`Dropdown show state: ${dropdown.classList.contains('show')}`);
+    } else {
+        window.debugLog('ERROR: sectionDropdown not found', true);
     }
 }
 
@@ -822,7 +827,11 @@ document.addEventListener('click', function (e) {
 });
 
 async function createNewSection(sectionType = 'text', x = null, y = null) {
-    if (!currentPageId) return;
+    window.debugLog(`createNewSection called: type=${sectionType}`);
+    if (!currentPageId) {
+        window.debugLog('ERROR: currentPageId is null', true);
+        return;
+    }
 
     // ドロップダウンを閉じる
     const dropdown = document.getElementById('sectionDropdown');
@@ -1485,7 +1494,11 @@ async function changeSectionType(sectionId) {
 }
 
 async function deleteSection(sectionId) {
-    if (!confirm('このファイルビューを削除しますか？')) return;
+    window.debugLog(`deleteSection called: ID=${sectionId}`);
+    if (!confirm('このファイルビューを削除しますか？')) {
+        window.debugLog('Delete cancelled by user');
+        return;
+    }
 
     try {
         await apiCall(`/api/sections/${sectionId}`, { method: 'DELETE' });
@@ -1494,10 +1507,9 @@ async function deleteSection(sectionId) {
         sections = sections.filter(s => s.id !== sectionId);
         renderPageContent();
 
-        console.log(`Section ${sectionId} deleted successfully`);
+        window.debugLog(`Section ${sectionId} deleted successfully`);
     } catch (error) {
-        console.error('Delete section failed:', error);
-        // apiCall内でalertが表示されるので、ここでは何もしない
+        window.debugLog(`Delete section failed: ${error.message}`, true);
     }
 }
 
@@ -2828,7 +2840,9 @@ function configureSection(sectionId) {
 
 // フォルダ参照ボタン - ローカルPCのフォルダを選択
 async function openDirectoryBrowser() {
+    window.debugLog('openDirectoryBrowser called');
     if (!('showDirectoryPicker' in window)) {
+        window.debugLog('ERROR: showDirectoryPicker not in window', true);
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
@@ -2838,8 +2852,7 @@ async function openDirectoryBrowser() {
         setTimeout(() => btn.style.backgroundColor = '', 200);
     }
 
-    // デバッグ用アラート
-    alert('フォルダ選択(参照ボタン)のクリックを検知しました');
+    window.debugLog('openDirectoryBrowser entering main logic...');
 
     console.log('openDirectoryBrowser called, isFolderPickerActive:', isFolderPickerActive);
     if (isFolderPickerActive) {
@@ -3077,10 +3090,13 @@ function setupDirectoryBrowserEvents() {
 
     const btnBrowse = document.getElementById('btnBrowseSectionPath');
     if (btnBrowse) {
+        window.debugLog('Binding btnBrowseSectionPath click listener');
         btnBrowse.addEventListener('click', () => {
-            console.log('btnBrowseSectionPath addEventListener triggered');
+            window.debugLog('btnBrowseSectionPath clicked (from addEventListener)');
             openDirectoryBrowser();
         });
+    } else {
+        window.debugLog('WARNING: btnBrowseSectionPath not found in DOM during setup', true);
     }
 
     // ディレクトリブラウザモーダル
