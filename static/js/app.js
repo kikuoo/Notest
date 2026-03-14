@@ -188,6 +188,25 @@ async function createTab(name) {
     });
     tab.pages = []; // 初期化
     tabs.push(tab);
+
+    // 他の全ワークスペース(1, 2, 3)でこのタブを非表示にする（独立性を保つため）
+    [1, 2, 3].forEach(wsId => {
+        if (wsId !== currentWorkspace) {
+            let hiddenTabs = [];
+            try {
+                const key = `notest_hidden_tabs_ws${wsId}`;
+                const stored = localStorage.getItem(key);
+                hiddenTabs = stored ? JSON.parse(stored) : [];
+                if (!hiddenTabs.includes(tab.id)) {
+                    hiddenTabs.push(tab.id);
+                    localStorage.setItem(key, JSON.stringify(hiddenTabs));
+                }
+            } catch (e) {
+                console.error(`Error hiding tab ${tab.id} in workspace ${wsId}:`, e);
+            }
+        }
+    });
+
     renderTabs();
     selectTab(tab.id);
 }
@@ -320,6 +339,17 @@ function toggleTabVisibility(tabId, hide) {
 // ワークスペースの切り替え
 async function switchWorkspace(wsId) {
     console.log(`Switching to workspace: ${wsId}`);
+
+    // 初回起動時の初期化：既存の全タブを非表示にする（1番以外の独立性を保つため）
+    // ※ 1番は初期状態を維持、2番・3番は空の状態で始めたいというリクエストに対応
+    const initKey = `notest_ws${wsId}_initialized`;
+    if (wsId !== 1 && !localStorage.getItem(initKey)) {
+        console.log(`Initializing workspace ${wsId} for the first time...`);
+        const allTabIds = tabs.map(t => t.id);
+        localStorage.setItem(`notest_hidden_tabs_ws${wsId}`, JSON.stringify(allTabIds));
+        localStorage.setItem(initKey, 'true');
+    }
+
     currentWorkspace = wsId;
     localStorage.setItem('notest_current_workspace', wsId);
 
