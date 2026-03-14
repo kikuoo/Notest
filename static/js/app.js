@@ -1,11 +1,38 @@
-// DEBUG: 読み込み開始アラート
-alert('DEBUG: Loading app.js... (v1.4-diag)');
+// --- DEBUG HUD SYSTEM START ---
+(function() {
+    const hud = document.createElement('div');
+    hud.id = 'debug-hud';
+    hud.style.cssText = 'position:fixed;top:10px;right:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.85);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;';
+    hud.innerHTML = '<div style="display:flex;justify-content:space-between;border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;">' +
+                    '<b>WowNote Debug HUD (v1.5-hud)</b>' +
+                    '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button></div>' +
+                    '<div id="debug-hud-logs"></div>';
+    document.body ? document.body.appendChild(hud) : document.documentElement.appendChild(hud);
+})();
 
-// グローバルエラーキャッチ
+window.debugLog = function(msg, isError = false) {
+    const logContainer = document.getElementById('debug-hud-logs');
+    if (!logContainer) {
+        console.log('HUD LOG:', msg);
+        return;
+    }
+    const line = document.createElement('div');
+    line.style.marginBottom = '3px';
+    if (isError) line.style.color = '#f55';
+    line.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logContainer.appendChild(line);
+    logContainer.scrollTop = logContainer.scrollHeight;
+    console.log('HUD:', msg);
+};
+
+window.debugLog('DEBUG: app.js started loading...');
+
 window.onerror = function(message, source, lineno, colno, error) {
-    alert(`DEBUG: Global Script Error!\nMessage: ${message}\nSource: ${source}\nLine: ${lineno}:${colno}`);
+    const errMsg = `ERROR: ${message}\nAt: ${source}:${lineno}:${colno}`;
+    window.debugLog(errMsg, true);
     return false;
 };
+// --- DEBUG HUD SYSTEM END ---
 
 // グローバル変数
 let currentTabId = null;
@@ -1142,9 +1169,9 @@ function deleteStorageFileAndHide(sectionId, filename) {
 
 // ページ読み込み完了時の初期化処理
 document.addEventListener('DOMContentLoaded', async () => {
-    alert('DEBUG: DomContentLoaded triggered. Starting initialization...');
+    window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        console.log('App initialization started... (v1.4-diag)');
+        window.debugLog('App initialization started... (v1.5-hud)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1159,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v1.4-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v1.5-hud [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -1213,11 +1240,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 4. History APIトラップ
     setupHistoryTrap();
 
-    console.log('App initialization completed.');
-    alert('DEBUG: Initialization finished successfully.');
+    window.debugLog('App initialization completed.');
+    window.debugLog('SUCCESS: Initialization finished with no fatal errors.');
     } catch (e) {
         console.error('CRITICAL: Initialization failed!', e);
-        alert('DEBUG: Initialization FAILED!\nError: ' + e.message + '\nStack: ' + e.stack);
+        window.debugLog('CRITICAL FAILED: ' + e.message, true);
     }
 });
 
@@ -3794,5 +3821,5 @@ window.addEventListener('popstate', (e) => {
     }
 });
 
-// DEBUG: 読み込み完了アラート
-alert('DEBUG: app.js loaded successfully. (End of file reached)');
+// DEBUG: 読み込み完了ログ
+window.debugLog('DEBUG: app.js loaded successfully. (End of file reached)');
