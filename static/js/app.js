@@ -23,7 +23,7 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v3.0-persistence-clarity)</b>' +
+                    '<b>WowNote Debug HUD (v3.1-local-only)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
@@ -121,7 +121,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v3.0 (Persistence Clarity Active)');
+window.debugLog('DEBUG: app.js loaded v3.1 (Local-Only Selection Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1299,7 +1299,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v3.0-persistence-clarity)');
+        window.debugLog('App initialization started... (v3.1-local-only)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v3.0-persistence-clarity [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v3.1-local-only [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -2979,19 +2979,10 @@ window.configureSection = function(sectionId) {
 
 
 
-// フォルダ参照ボタン - どちらを参照するか選択させる (v3.0)
+// フォルダ参照ボタン - ローカルPCのフォルダを直接選択 (v3.1)
 window.openDirectoryBrowser = async function() {
-    window.debugLog('openDirectoryBrowser called (v3.0)');
-    const choice = confirm('どのフォルダを選択しますか？\n\n「OK」: 自分のPCのフォルダ (普通はこちら)\n「キャンセル」: サーバー上のフォルダ (Xserver等の同期フォルダ)');
-    
-    if (choice) {
-        // PCのフォルダ
-        window.openNativeBrowserPicker();
-    } else {
-        // サーバーのフォルダ
-        showModal('modalDirectoryBrowser');
-        loadDirectory('~');
-    }
+    window.debugLog('openDirectoryBrowser called (v3.1-local-only)');
+    window.openNativeBrowserPicker();
 }
 
 // 元々のブラウザ標準ピッカー (リロードで消えるため非推奨とした)
