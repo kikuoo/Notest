@@ -23,7 +23,7 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.7-ux-refinement)</b>' +
+                    '<b>WowNote Debug HUD (v2.8-persistence-fix)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
@@ -121,7 +121,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v2.7 (UX Refinement Active)');
+window.debugLog('DEBUG: app.js loaded v2.8 (Persistence Fix Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1299,7 +1299,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v2.7-ux-refinement)');
+        window.debugLog('App initialization started... (v2.8-persistence-fix)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.7-ux-refinement [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.8-persistence-fix [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -2118,12 +2118,17 @@ async function fetchSectionFiles(sectionId) {
         } catch (error) {
             // パスが見つからない場合は、ユーザーが選べるようにフレンドリーなUIを表示
             if (error.message.includes('Path not found') || error.message.includes('404')) {
+                window.debugLog(`Showing actionable error UI for section ${sectionId} (Path: ${data.path})`);
                 listEl.innerHTML = `<div style="padding:20px; text-align:center; color:#666; background:#fefefe; border:1px dashed #ccc; border-radius:8px; margin:10px;">
-                    <div style="font-size:14px; margin-bottom:12px;">📁 フォルダ「${escapeHtml(data.path)}」が見つかりません</div>
-                    <div style="font-size:12px; color:#999; margin-bottom:15px;">リロード後に接続が切れたか、パスが変更された可能性があります。</div>
+                    <div style="font-size:14px; margin-bottom:12px; font-weight:bold;">📁 フォルダにアクセスできません</div>
+                    <div style="font-size:12px; color:#d32f2f; margin-bottom:8px;">「${escapeHtml(data.path)}」</div>
+                    <div style="font-size:11px; color:#999; margin-bottom:15px; line-height:1.4;">
+                        接続が解除されたか、サーバー上でパスが見つかりません。<br>
+                        以下のいずれかで再度指定してください。
+                    </div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
                         <button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="window.openDirectoryBrowser()">📁 モダン選択 (推薦)</button>
-                        <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="window.openLegacyDirectorySelector()">☁️ レガシー選択</button>
+                        <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="window.openLegacyDirectorySelector()">☁️ 手動選択 (レガシー)</button>
                         <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="showModal('modalDirectoryBrowser'); loadDirectory('~');">🖥 サーバーから選択</button>
                     </div>
                 </div>`;
