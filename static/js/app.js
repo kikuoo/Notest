@@ -1773,11 +1773,24 @@ async function pickLocalFolder(sectionId) {
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
-    if (isFolderPickerActive) return;
+    console.log('pickLocalFolder called, isFolderPickerActive:', isFolderPickerActive);
+    if (isFolderPickerActive) {
+        console.warn('Folder picker already active, ignoring click');
+        return;
+    }
+
+    let safetyTimeout = setTimeout(() => {
+        if (isFolderPickerActive) {
+            console.error('Safety reset: isFolderPickerActive was stuck for 60s. Resetting.');
+            isFolderPickerActive = false;
+        }
+    }, 60000);
 
     try {
         isFolderPickerActive = true;
+        console.log('Calling showDirectoryPicker...');
         const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        console.log('Folder selected:', dirHandle.name);
         localDirHandles[sectionId] = dirHandle;
         localDirSubHandles[sectionId] = dirHandle;
         sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
@@ -1787,9 +1800,16 @@ async function pickLocalFolder(sectionId) {
         if (label) label.textContent = dirHandle.name;
         await fetchSectionFiles(sectionId);
     } catch (e) {
-        if (e.name !== 'AbortError') alert('フォルダの選択に失敗しました: ' + e.message);
+        if (e.name !== 'AbortError') {
+            console.error('Folder selection failed:', e);
+            alert('フォルダの選択に失敗しました: ' + e.message);
+        } else {
+            console.log('Folder selection cancelled by user');
+        }
     } finally {
         isFolderPickerActive = false;
+        clearTimeout(safetyTimeout);
+        console.log('isFolderPickerActive reset to false');
     }
 }
 
@@ -2748,11 +2768,24 @@ async function openDirectoryBrowser() {
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
-    if (isFolderPickerActive) return;
+    console.log('openDirectoryBrowser called, isFolderPickerActive:', isFolderPickerActive);
+    if (isFolderPickerActive) {
+        console.warn('Folder picker already active, ignoring click');
+        return;
+    }
+
+    let safetyTimeout = setTimeout(() => {
+        if (isFolderPickerActive) {
+            console.error('Safety reset: isFolderPickerActive was stuck for 60s. Resetting.');
+            isFolderPickerActive = false;
+        }
+    }, 60000);
 
     try {
         isFolderPickerActive = true;
+        console.log('Calling showDirectoryPicker...');
         const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        console.log('Folder selected:', dirHandle.name);
         // 選択されたハンドルのパスをインプットに設定（表示用）
         const pathInput = document.getElementById('sectionStoragePath');
         if (pathInput) pathInput.value = dirHandle.name;
@@ -2766,9 +2799,16 @@ async function openDirectoryBrowser() {
             await saveFsHandle(sectionId, dirHandle);
         }
     } catch (e) {
-        if (e.name !== 'AbortError') alert('フォルダの選択に失敗しました: ' + e.message);
+        if (e.name !== 'AbortError') {
+            console.error('Folder selection failed:', e);
+            alert('フォルダの選択に失敗しました: ' + e.message);
+        } else {
+            console.log('Folder selection cancelled by user');
+        }
     } finally {
         isFolderPickerActive = false;
+        clearTimeout(safetyTimeout);
+        console.log('isFolderPickerActive reset to false');
     }
 }
 
