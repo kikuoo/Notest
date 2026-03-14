@@ -1,4 +1,19 @@
 // --- DEBUG HUD SYSTEM START ---
+window.debugLog = function(msg, isError = false) {
+    const logContainer = document.getElementById('debug-hud-logs');
+    if (!logContainer) {
+        console.log('HUD LOG:', msg);
+        return;
+    }
+    const line = document.createElement('div');
+    line.style.marginBottom = '3px';
+    if (isError) line.style.color = '#f55';
+    line.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logContainer.appendChild(line);
+    logContainer.scrollTop = logContainer.scrollHeight;
+    console.log('HUD:', msg);
+};
+
 (function() {
     const hud = document.createElement('div');
     hud.id = 'debug-hud';
@@ -8,7 +23,7 @@
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.0-draggable)</b>' +
+                    '<b>WowNote Debug HUD (v2.1-fix)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
                     '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button>' +
@@ -35,7 +50,7 @@
         if (!isDragging) return;
         hud.style.left = (e.clientX + offset.x) + 'px';
         hud.style.top = (e.clientY + offset.y) + 'px';
-        hud.style.right = 'auto'; // 初期位置のright指定をクリア
+        hud.style.right = 'auto';
     });
 
     document.addEventListener('mouseup', () => {
@@ -44,24 +59,7 @@
     });
 })();
 
-window.debugLog('DEBUG: app.js loaded v2.0 (HUD Draggable)');
-
-window.debugLog = function(msg, isError = false) {
-    const logContainer = document.getElementById('debug-hud-logs');
-    if (!logContainer) {
-        console.log('HUD LOG:', msg);
-        return;
-    }
-    const line = document.createElement('div');
-    line.style.marginBottom = '3px';
-    if (isError) line.style.color = '#f55';
-    line.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    logContainer.appendChild(line);
-    logContainer.scrollTop = logContainer.scrollHeight;
-    console.log('HUD:', msg);
-};
-
-window.debugLog('DEBUG: app.js started loading (v1.7)...');
+window.debugLog('DEBUG: app.js loaded v2.1 (HUD Fix)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -75,6 +73,7 @@ window.onerror = function(message, source, lineno, colno, error) {
     window.debugLog(errMsg, true);
     return false;
 };
+// --- DEBUG HUD SYSTEM END ---
 // --- DEBUG HUD SYSTEM END ---
 
 // グローバル変数
@@ -1254,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.0-draggable [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.1-fix [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
