@@ -23,7 +23,7 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v3.1-local-only)</b>' +
+                    '<b>WowNote Debug HUD (v3.2-picker-fix)</b>' +
                     '<div style="pointer-events:auto;">' +
                     '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
@@ -121,7 +121,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v3.1 (Local-Only Selection Active)');
+window.debugLog('DEBUG: app.js loaded v3.2 (Picker Reliability Fix Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1299,7 +1299,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v3.1-local-only)');
+        window.debugLog('App initialization started... (v3.2-picker-fix)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v3.1-local-only [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v3.2-picker-fix [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -1954,61 +1954,7 @@ async function uploadFileToSection(file, sectionId) {
 
 // ストレージ（フォルダ）機能
 // ローカルフォルダを選択する
-async function pickLocalFolder(sectionId) {
-    if (!('showDirectoryPicker' in window)) {
-        alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
-        return;
-    }
-    const btn = document.querySelector(`button[onclick="reconnectFolder(${sectionId})"]`);
-    if (btn) {
-        btn.style.backgroundColor = '#e0f0ff';
-        setTimeout(() => btn.style.backgroundColor = '', 200);
-    }
-
-    console.log('pickLocalFolder called, isFolderPickerActive:', isFolderPickerActive);
-    if (isFolderPickerActive) {
-        alert('フォルダ選択が既に進行中です。しばらく待ってから再度お試しください。');
-        return;
-    }
-
-    if (typeof window.showDirectoryPicker !== 'function') {
-        alert('エラー: このブラウザの showDirectoryPicker が無効、または非対応です。');
-        return;
-    }
-
-    let safetyTimeout = setTimeout(() => {
-        if (isFolderPickerActive) {
-            console.error('Safety reset: isFolderPickerActive was stuck for 60s. Resetting.');
-            isFolderPickerActive = false;
-        }
-    }, 60000);
-
-    try {
-        isFolderPickerActive = true;
-        console.log('Calling showDirectoryPicker...');
-        const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-        console.log('Folder selected:', dirHandle.name);
-        localDirHandles[sectionId] = dirHandle;
-        localDirSubHandles[sectionId] = dirHandle;
-        sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
-        // IndexedDBに保存（永続化）
-        await saveFsHandle(sectionId, dirHandle);
-        const label = document.getElementById(`picker-label-${sectionId}`);
-        if (label) label.textContent = dirHandle.name;
-        await fetchSectionFiles(sectionId);
-    } catch (e) {
-        if (e.name !== 'AbortError') {
-            console.error('Folder selection failed:', e);
-            alert('フォルダの選択に失敗しました: ' + e.message);
-        } else {
-            console.log('Folder selection cancelled by user');
-        }
-    } finally {
-        isFolderPickerActive = false;
-        clearTimeout(safetyTimeout);
-        console.log('isFolderPickerActive reset to false');
-    }
-}
+// (Obsolete pickLocalFolder removed. Use window.openDirectoryBrowser)
 
 async function fetchSectionFiles(sectionId) {
     const listEl = document.getElementById(`file-list-${sectionId}`);
@@ -2979,41 +2925,26 @@ window.configureSection = function(sectionId) {
 
 
 
-// フォルダ参照ボタン - ローカルPCのフォルダを直接選択 (v3.1)
+// フォルダ参照ボタン - ローカルPCのフォルダを確実に開く (v3.2-picker-fix)
+// ブラウザの制限により、呼び出し元からここまでの間に非同期処理を挟まないことが重要
 window.openDirectoryBrowser = async function() {
-    window.debugLog('openDirectoryBrowser called (v3.1-local-only)');
-    window.openNativeBrowserPicker();
-}
-
-// 元々のブラウザ標準ピッカー (リロードで消えるため非推奨とした)
-window.openNativeBrowserPicker = async function() {
-    window.debugLog('openNativeBrowserPicker called (Legacy-Transient)');
+    window.debugLog('openDirectoryBrowser start (v3.2)');
     
-    // ユーザージェスチャを即座に使用 (最優先)
-    let pickerPromise = null;
-    const hasApi = 'showDirectoryPicker' in window && typeof window.showDirectoryPicker === 'function';
-    
-    if (hasApi) {
-        window.debugLog('Attempting window.showDirectoryPicker...');
-        pickerPromise = window.showDirectoryPicker({ mode: 'read' }).catch(e => {
-            window.debugLog(`Picker Error: ${e.message}`, true);
-            if (e.message.indexOf('already active') !== -1) {
-                alert('ブラウザの選択画面が既に応答を待っています。');
-            }
-            throw e;
-        });
-    } else {
-        window.debugLog('ERROR: showDirectoryPicker NOT supported', true);
-        alert('このブラウザは標準フォルダ選択に対応していません。「サーバーから選択」をお使いください。');
+    if (!('showDirectoryPicker' in window)) {
+        alert('このブラウザはフォルダ選択に対応していません。Chrome または Edge の最新版をお使いください。');
         return;
     }
 
-    if (isFolderPickerActive) isFolderPickerActive = false; 
-    isFolderPickerActive = true;
+    if (isFolderPickerActive) {
+        window.debugLog('Picker already active, forcing reset');
+        isFolderPickerActive = false;
+    }
 
     try {
-        const dirHandle = await pickerPromise;
-        window.debugLog(`Native Folder selected: ${dirHandle.name}`);
+        isFolderPickerActive = true;
+        // showDirectoryPicker を可能な限り早く（同期的と言える範囲で）呼び出す
+        const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        window.debugLog(`Folder selected: ${dirHandle.name}`);
         
         const pathInput = document.getElementById('sectionStoragePath');
         if (pathInput) pathInput.value = dirHandle.name;
@@ -3023,13 +2954,22 @@ window.openNativeBrowserPicker = async function() {
             localDirHandles[sectionId] = dirHandle;
             localDirSubHandles[sectionId] = dirHandle;
             await saveFsHandle(sectionId, dirHandle);
-            window.debugLog('Handle saved.');
+            window.debugLog('Handle saved to IndexedDB.');
         }
     } catch (e) {
-        if (e.name !== 'AbortError') window.debugLog(`Catch: ${e.message}`, true);
+        if (e.name === 'AbortError') {
+            window.debugLog('Picker cancelled by user');
+        } else {
+            window.debugLog(`Picker Error: ${e.message}`, true);
+            if (e.message.includes('user activation')) {
+                alert('セキュリティ制限により画面を表示できませんでした。もう一度ボタンを押し直してください。');
+            } else {
+                alert('フォルダ選択に失敗しました: ' + e.message);
+            }
+        }
     } finally {
         isFolderPickerActive = false;
-        window.debugLog('openNativeBrowserPicker FINISHED');
+        window.debugLog('openDirectoryBrowser finished');
     }
 }
 
