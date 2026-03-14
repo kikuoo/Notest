@@ -1,127 +1,92 @@
-// --- DEBUG HUD SYSTEM START ---
+// --- LOGGING SYSTEM ---
 window.debugLog = function(msg, isError = false) {
-    const logContainer = document.getElementById('debug-hud-logs');
-    if (!logContainer) {
-        console.log('HUD LOG:', msg);
-        return;
+    if (isError) {
+        console.error('WowNote [v3.4-clean-ui]:', msg);
+    } else {
+        console.log('WowNote [v3.4-clean-ui]:', msg);
     }
-    const line = document.createElement('div');
-    line.style.marginBottom = '3px';
-    if (isError) line.style.color = '#f55';
-    line.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    logContainer.appendChild(line);
-    logContainer.scrollTop = logContainer.scrollHeight;
-    console.log('HUD:', msg);
 };
 
+// --- LEGACY INPUT INITIALIZATION ---
 (function() {
-    const hud = document.createElement('div');
-    hud.id = 'debug-hud';
-    hud.style.cssText = 'position:fixed;top:10px;left:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.9);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;pointer-events:auto;cursor:move;user-select:none;';
-    
-    const browserInfo = `UA: ${navigator.userAgent.substring(0, 30)}... | HTTPS: ${window.isSecureContext}`;
-    
-    hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
-                    '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v3.3-local-only-ui)</b>' +
-                    '<div style="pointer-events:auto;">' +
-                    '<button onclick="if(window.openLegacyDirectorySelector) window.openLegacyDirectorySelector(); event.stopPropagation();" style="background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Legacy Select</button>' +
-                    '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
-                    '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button>' +
-                    '</div></div>' +
-                    `<div style="font-size:9px;color:#aaa;margin-top:2px;">${browserInfo}</div></div>` +
-                    '<div id="debug-hud-logs" style="pointer-events:auto;cursor:default;user-select:text;"></div>';
-    document.body ? document.body.appendChild(hud) : document.documentElement.appendChild(hud);
-
-    // 古いブラウザ用の非表示input作成
-    const legacyInput = document.createElement('input');
-    legacyInput.type = 'file';
-    legacyInput.id = 'legacy-directory-input';
-    legacyInput.webkitdirectory = true;
-    legacyInput.style.display = 'none';
-    document.body.appendChild(legacyInput);
-    
-    window.createMockHandle = function(files, pathPrefix = "") {
-        const rootArr = Array.from(files);
-        const name = pathPrefix.split('/').pop() || (rootArr[0]?.webkitRelativePath.split('/')[0] || "root");
-        return {
-            kind: 'directory',
-            name: name,
-            entries: async function* () {
-                const seen = new Set();
-                for (const file of rootArr) {
-                    const relPath = file.webkitRelativePath;
-                    if (!relPath.startsWith(pathPrefix)) continue;
-                    const tail = relPath.substring(pathPrefix.length + (pathPrefix ? 1 : 0));
-                    if (!tail) continue;
-                    const parts = tail.split('/');
-                    const itemName = parts[0];
-                    if (seen.has(itemName)) continue;
-                    seen.add(itemName);
-                    const isDir = parts.length > 1;
-                    const newPrefix = pathPrefix + (pathPrefix ? '/' : '') + itemName;
-                    yield [itemName, isDir ? window.createMockHandle(rootArr, newPrefix) : {
-                        kind: 'file',
-                        name: itemName,
-                        getFile: async () => file
-                    }];
+    // 互換性維持用の非表示要素のみ残す
+    const initLegacyInput = () => {
+        if (!document.getElementById('legacy-directory-input')) {
+            const legacyInput = document.createElement('input');
+            legacyInput.type = 'file';
+            legacyInput.id = 'legacy-directory-input';
+            legacyInput.webkitdirectory = true;
+            legacyInput.style.display = 'none';
+            document.body.appendChild(legacyInput);
+            
+            legacyInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files.length > 0) {
+                    const rootName = files[0].webkitRelativePath.split('/')[0];
+                    const sectionId = parseInt(document.getElementById('editingSectionId')?.value || "0");
+                    const pathInput = document.getElementById('sectionStoragePath');
+                    if (pathInput) pathInput.value = rootName;
+                    if (sectionId > 0) {
+                        const mockHandle = window.createMockHandle(files, rootName);
+                        localDirHandles[sectionId] = mockHandle;
+                        localDirSubHandles[sectionId] = mockHandle;
+                        sectionNavigationHistory[sectionId] = { history: [rootName], currentIndex: 0, handles: [mockHandle] };
+                    }
+                    alert('フォルダを認識しました。「保存」を押して反映させてください。');
                 }
-            },
-            getDirectoryHandle: async (subName) => window.createMockHandle(rootArr, pathPrefix + (pathPrefix ? '/' : '') + subName),
-            getFileHandle: async (subName) => {
-                const search = (pathPrefix ? pathPrefix + '/' : '') + subName;
-                const file = rootArr.find(f => f.webkitRelativePath === search);
-                return { kind: 'file', name: subName, getFile: async () => file };
-            },
-            queryPermission: async () => 'granted',
-            requestPermission: async () => 'granted'
-        };
+            });
+        }
     };
 
-    legacyInput.addEventListener('change', (e) => {
-        const files = e.target.files;
-        if (files.length > 0) {
-            const rootName = files[0].webkitRelativePath.split('/')[0];
-            window.debugLog(`Legacy Selected: ${rootName} (${files.length} files)`);
-            const sectionId = parseInt(document.getElementById('editingSectionId')?.value || "0");
-            const pathInput = document.getElementById('sectionStoragePath');
-            if (pathInput) pathInput.value = rootName;
-            
-            if (sectionId > 0) {
-                const mockHandle = window.createMockHandle(files, rootName);
-                localDirHandles[sectionId] = mockHandle;
-                localDirSubHandles[sectionId] = mockHandle;
-                sectionNavigationHistory[sectionId] = { history: [rootName], currentIndex: 0, handles: [mockHandle] };
-                window.debugLog(`Injected Mock Handle for Section ${sectionId}`);
-            }
-            alert('フォルダを認識しました。「保存」を押して反映させてください。');
-        }
-    });
-
-    // ドラッグ機能
-    let isDragging = false;
-    let offset = { x: 0, y: 0 };
-    hud.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON') return;
-        isDragging = true;
-        offset = { x: hud.offsetLeft - e.clientX, y: hud.offsetTop - e.clientY };
-        hud.style.opacity = '0.7';
-    });
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        hud.style.left = (e.clientX + offset.x) + 'px';
-        hud.style.top = (e.clientY + offset.y) + 'px';
-        hud.style.right = 'auto';
-    });
-    document.addEventListener('mouseup', () => { isDragging = false; hud.style.opacity = '0.9'; });
+    if (document.body) {
+        initLegacyInput();
+    } else {
+        document.addEventListener('DOMContentLoaded', initLegacyInput);
+    }
 })();
 
+window.createMockHandle = function(files, pathPrefix = "") {
+    const rootArr = Array.from(files);
+    const name = pathPrefix.split('/').pop() || (rootArr[0]?.webkitRelativePath.split('/')[0] || "root");
+    return {
+        kind: 'directory',
+        name: name,
+        entries: async function* () {
+            const seen = new Set();
+            for (const file of rootArr) {
+                const relPath = file.webkitRelativePath;
+                if (!relPath.startsWith(pathPrefix)) continue;
+                const tail = relPath.substring(pathPrefix.length + (pathPrefix ? 1 : 0));
+                if (!tail) continue;
+                const parts = tail.split('/');
+                const itemName = parts[0];
+                if (seen.has(itemName)) continue;
+                seen.add(itemName);
+                const isDir = parts.length > 1;
+                const newPrefix = pathPrefix + (pathPrefix ? '/' : '') + itemName;
+                yield [itemName, isDir ? window.createMockHandle(rootArr, newPrefix) : {
+                    kind: 'file',
+                    name: itemName,
+                    getFile: async () => file
+                }];
+            }
+        },
+        getDirectoryHandle: async (subName) => window.createMockHandle(rootArr, pathPrefix + (pathPrefix ? '/' : '') + subName),
+        getFileHandle: async (subName) => {
+            const search = (pathPrefix ? pathPrefix + '/' : '') + subName;
+            const file = rootArr.find(f => f.webkitRelativePath === search);
+            return { kind: 'file', name: subName, getFile: async () => file };
+        },
+        queryPermission: async () => 'granted',
+        requestPermission: async () => 'granted'
+    };
+};
+
 window.openLegacyDirectorySelector = function() {
-    window.debugLog('Opening Legacy Directory Selector...');
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v3.3 (Local-Only UI Active)');
+window.debugLog('DEBUG: app.js loaded v3.4-clean-ui');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1299,7 +1264,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v3.3-local-only-ui)');
+        window.debugLog('App initialization started... (v3.4-clean-ui)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v3.3-local-only-ui [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v3.4-clean-ui [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
