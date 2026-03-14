@@ -686,6 +686,7 @@ function showPageContextMenu(e, pageId, pageName) {
 }
 
 async function selectPage(pageId) {
+    if (currentPageId === pageId) return; // すでに選択されている場合は何もしない
     currentPageId = pageId;
 
     // localStorageに保存
@@ -695,7 +696,14 @@ async function selectPage(pageId) {
     const page = await apiCall(`/api/pages/${pageId}`);
     sections = page.sections || [];
     renderPageContent();
-    renderPageTabs(tabs.find(t => t.id === currentTabId)?.pages || []);
+    // renderPageTabsはselectTabまたは初期化時、あるいはページ追加・削除時のみで十分。
+    // selectPageごとに呼び出す必要はないはずだが、アクティブ状態の更新のために必要なら最小限にする。
+    const activeTab = tabs.find(t => t.id === currentTabId);
+    if (activeTab) {
+        // 全体を再レンダリングせず、アクティブクラスの付け替えだけにするのが理想だが
+        // 現状の設計に合わせて一応呼んでおく（ただしボトルネックならここを修正）
+        renderPageTabs(activeTab.pages || []);
+    }
 }
 
 // セクション関連
@@ -2164,6 +2172,37 @@ async function openFileNativeOS(sectionId, fileName) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
+    let fullPath = await getFullPathForFile(sectionId, fileName);
+    if (!fullPath) return;
+
+    try {
+        const response = await fetch('/note/api/system/open-local', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ path: fullPath })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || '不明なエラー');
+        }
+
+    } catch (e) {
+        console.error('Failed to open file natively:', e);
+        // エラー時はフォールバックとしてブラウザ上で開くかダウンロードする
+        if (localDirSubHandles[sectionId]) {
+            openLocalFile(sectionId, fileName);
+        } else {
+            downloadStorageFile(sectionId, fileName);
+        }
+    }
+}
+
+// ヘルパー: ファイルのフルパスを取得
+async function getFullPathForFile(sectionId, fileName) {
+    const section = sections.find(s => s.id === sectionId);
     let basePath = '';
 
     // 端末ごとのローカル設定があるか確認
@@ -2193,33 +2232,33 @@ async function openFileNativeOS(sectionId, fileName) {
 
     if (!basePath) {
         alert('ファイルのパスが特定できませんでした。');
-        return;
+        return null;
     }
 
-    const fullPath = basePath.endsWith('/') ? `${basePath}${fileName}` : `${basePath}/${fileName}`;
+    return basePath.endsWith('/') ? `${basePath}${fileName}` : `${basePath}/${fileName}`;
+}
+
+// 特定のプログラムでファイルを開く
+async function openFileWithProgram(sectionId, fileName, program) {
+    const fullPath = await getFullPathForFile(sectionId, fileName);
+    if (!fullPath) return;
 
     try {
-        const response = await fetch('/note/api/system/open-local', {
+        const response = await fetch('/note/api/system/open-local-with', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ path: fullPath })
+            body: JSON.stringify({ path: fullPath, program: program })
         });
 
         if (!response.ok) {
             const errData = await response.json();
             throw new Error(errData.error || '不明なエラー');
         }
-
     } catch (e) {
-        console.error('Failed to open file natively:', e);
-        // エラー時はフォールバックとしてブラウザ上で開くかダウンロードする
-        if (localDirSubHandles[sectionId]) {
-            openLocalFile(sectionId, fileName);
-        } else {
-            downloadStorageFile(sectionId, fileName);
-        }
+        console.error('Failed to open file with program:', e);
+        alert('プログラムで開けませんでした: ' + e.message);
     }
 }
 
@@ -2596,6 +2635,15 @@ function showFileContextMenu(e, sectionId, filename) {
     const isZipFile = filename.toLowerCase().endsWith('.zip');
 
     let menuItems = `
+        <div class="context-menu-item" onclick="openFileNativeOS(${sectionId}, '${escapeHtml(filename)}'); hideContextMenu();">🚀 開く</div>
+        <div class="context-menu-item submenu-parent">
+            🛠 プログラムを選択して開く
+            <div class="context-submenu">
+                <div class="context-menu-item" onclick="openFileWithProgram(${sectionId}, '${escapeHtml(filename)}', 'vscode'); hideContextMenu();">Visual Studio Code</div>
+                <div class="context-menu-item" onclick="openFileWithProgram(${sectionId}, '${escapeHtml(filename)}', 'textedit'); hideContextMenu();">テキストエディタ</div>
+            </div>
+        </div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="navigateToParentFolder(${sectionId})">⬅️ 戻る</div>
         <div class="context-menu-item" onclick="navigateForwardFolder(${sectionId})" ${!canNavigateForward(sectionId) ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>➡️ 進む</div>
         <div class="context-menu-divider"></div>

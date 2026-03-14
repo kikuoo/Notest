@@ -850,6 +850,91 @@ def open_local_file():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sections/<int:section_id>/files/<path:filename>/save', methods=['POST'])
+def save_section_file(section_id, filename):
+    """ファイルの内容を保存（上書き）する"""
+    section = Section.query.get_or_404(section_id)
+    if section.content_type != 'storage':
+        return jsonify({'error': 'Not a storage section'}), 400
+        
+    try:
+        content_data = json.loads(section.content_data) if section.content_data else {}
+        path = content_data.get('path')
+        
+        if path:
+            path = os.path.expanduser(path)
+        
+        if not path or not os.path.exists(path):
+            return jsonify({'error': f'Path not found: {path}'}), 404
+            
+        file_path = os.path.join(path, filename)
+        
+        # セキュリティチェック: 指定されたディレクトリ内にあるか
+        if not os.path.abspath(file_path).startswith(os.path.abspath(path)):
+            return jsonify({'error': 'Invalid file path'}), 403
+
+        data = request.json
+        content = data.get('content')
+        if content is None:
+            return jsonify({'error': 'No content provided'}), 400
+
+        # テキストとして保存
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        return jsonify({'message': 'File saved successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/open-local-with', methods=['POST'])
+def open_local_file_with():
+    """指定されたプログラムでローカルファイルを開く"""
+    data = request.json
+    file_path = data.get('path')
+    program = data.get('program') # 'vscode', 'textedit', etc.
+    
+    if not file_path:
+        return jsonify({'error': 'Path is required'}), 400
+        
+    file_path = os.path.expanduser(file_path)
+    file_path = os.path.abspath(file_path)
+    
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+        
+    try:
+        if sys.platform == 'darwin': # macOS
+            if program == 'vscode':
+                cmd = ['open', '-a', 'Visual Studio Code', file_path]
+            elif program == 'textedit':
+                cmd = ['open', '-a', 'TextEdit', file_path]
+            else:
+                # デフォル：プログラム選択ダイアログを表示
+                cmd = ['open', '-R', file_path] # Finderで表示
+                # または 'open -a "Application Name" file'
+                # とりあえず open だけだと標準、プログラム指定なしの場合は 'open'
+                cmd = ['open', file_path]
+            
+            import subprocess
+            subprocess.call(cmd)
+        elif os.name == 'nt': # Windows
+            if program == 'vscode':
+                cmd = ['code', file_path]
+            elif program == 'notepad':
+                cmd = ['notepad', file_path]
+            else:
+                os.startfile(file_path)
+                return jsonify({'message': 'File opened successfully'}), 200
+            
+            import subprocess
+            subprocess.call(cmd, shell=True)
+        else:
+            return jsonify({'error': 'OS not supported for specific app open'}), 400
+            
+        return jsonify({'message': 'File opened successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ==================== 認証API ====================
 
 # ヘルパー関数: トークン生成

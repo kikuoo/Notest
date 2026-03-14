@@ -411,6 +411,41 @@ body.dark-theme .sidebar-toggle-btn:hover {
     border: 2px dashed #0078d4;
 }
 
+/* コンテキストメニューのサブメニュー */
+.submenu-parent {
+    position: relative;
+}
+
+.submenu-parent::after {
+    content: '▶';
+    font-size: 10px;
+    margin-left: auto;
+    opacity: 0.6;
+}
+
+.context-submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    min-width: 150px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    z-index: 1001;
+}
+
+.submenu-parent:hover > .context-submenu {
+    display: block;
+}
+
+body.dark-theme .context-submenu {
+    background-color: #2d2d30;
+    border-color: #3e3e42;
+    color: #fff;
+}
+
 /* コンテンツタイプ別スタイル */
 .content-text {
     width: 100%;

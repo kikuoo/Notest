@@ -149,27 +149,83 @@ async function showFilePreview(sectionId, filename) {
             <div class="preview-file-info">
                 <p><strong>ファイル名:</strong> ${escapeHtml(filename)}</p>
                 <p><strong>種類:</strong> テキストファイル</p>
-                <p style="color: #999; font-size: 12px;">読み込み中...</p>
+                <div style="margin-top: 10px;">
+                    <button class="btn-primary" id="btnEditFile" onclick="enableFileEditing()">編集モード</button>
+                    <button class="btn-primary" id="btnSaveFile" onclick="saveEditedFile(${sectionId}, '${escapeHtml(filename)}')" style="display: none; background-color: #28a745;">保存</button>
+                </div>
             </div>
-            <pre id="textPreviewContent">読み込み中...</pre>
+            <textarea id="textPreviewContent" style="width: 100%; height: calc(100% - 150px); min-height: 500px; border: 1px solid #ddd; padding: 10px; font-family: monospace; font-size: 14px; white-space: pre; overflow: auto; display: none;"></textarea>
+            <pre id="textPreviewDisplay" style="width: 100%; height: calc(100% - 150px); min-height: 500px; border: 1px solid #ddd; padding: 10px; font-family: monospace; font-size: 14px; white-space: pre; overflow: auto;">読み込み中...</pre>
         `;
 
         // テキストファイルの内容を取得
         fetch(downloadUrl)
             .then(response => response.text())
             .then(text => {
-                const preElement = document.getElementById('textPreviewContent');
-                if (preElement) {
-                    preElement.textContent = text;
-                }
+                const displayEl = document.getElementById('textPreviewDisplay');
+                const editEl = document.getElementById('textPreviewContent');
+                if (displayEl) displayEl.textContent = text;
+                if (editEl) editEl.value = text;
             })
             .catch(error => {
-                const preElement = document.getElementById('textPreviewContent');
-                if (preElement) {
-                    preElement.textContent = 'ファイルの読み込みに失敗しました';
-                }
+                const displayEl = document.getElementById('textPreviewDisplay');
+                if (displayEl) displayEl.textContent = 'ファイルの読み込みに失敗しました';
             });
     } else if (['mp4', 'webm', 'ogg'].includes(ext)) {
+// ... (rest of the code)
+
+function enableFileEditing() {
+    document.getElementById('textPreviewDisplay').style.display = 'none';
+    document.getElementById('textPreviewContent').style.display = 'block';
+    document.getElementById('btnEditFile').style.display = 'none';
+    document.getElementById('btnSaveFile').style.display = 'inline-block';
+}
+
+async function saveEditedFile(sectionId, filename) {
+    const content = document.getElementById('textPreviewContent').value;
+    const btnSave = document.getElementById('btnSaveFile');
+    const originalText = btnSave.textContent;
+    
+    btnSave.disabled = true;
+    btnSave.textContent = '保存中...';
+
+    try {
+        // バックエンド経由で保存を試みる
+        const response = await fetch(`/api/sections/${sectionId}/files/${encodeURIComponent(filename)}/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || '保存に失敗しました');
+        }
+
+        alert('ファイルを保存しました');
+        
+        // プレビュー内容を更新
+        document.getElementById('textPreviewDisplay').textContent = content;
+        
+        // 編集モードを終了
+        document.getElementById('textPreviewDisplay').style.display = 'block';
+        document.getElementById('textPreviewContent').style.display = 'none';
+        document.getElementById('btnEditFile').style.display = 'inline-block';
+        document.getElementById('btnSaveFile').style.display = 'none';
+
+        // ファイルリストをリロード（タイムスタンプなどの更新を反映させるため、もし表示していれば）
+        if (typeof fetchSectionFiles === 'function') {
+            fetchSectionFiles(sectionId);
+        }
+
+    } catch (e) {
+        console.error('Save error:', e);
+        alert('保存エラー: ' + e.message);
+    } finally {
+        btnSave.disabled = false;
+        btnSave.textContent = originalText;
+    }
+}
         // 動画ファイル
         previewHTML = `
             <div class="preview-file-info">
