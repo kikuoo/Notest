@@ -138,7 +138,8 @@ window.getApiUrl = function (path) {
 };
 
 // API呼び出し関数
-async function apiCall(url, options = {}) {
+// API呼び出し関数
+window.apiCall = async function(url, options = {}) {
     const showAlert = options.showAlert !== false;
 
     // キャッシュ対策：GETリクエストにはタイムスタンプ付与
@@ -660,8 +661,11 @@ function renderPageContent() {
     addSectionBtn.innerHTML = '➕';
     addSectionBtn.title = 'ファイルビューを追加';
     addSectionBtn.onclick = (e) => {
-        e.stopPropagation();
-        toggleSectionDropdown();
+        if (typeof window.toggleSectionDropdown === 'function') {
+            window.toggleSectionDropdown(e);
+        } else {
+            window.debugLog('ERROR: window.toggleSectionDropdown not found', true);
+        }
     };
 
     const dropdown = document.createElement('div');
@@ -805,7 +809,7 @@ function renderSectionContent(section) {
 }
 
 // ドロップダウンメニューの表示/非表示を切り替え
-function toggleSectionDropdown(e) {
+window.toggleSectionDropdown = function(e) {
     if (e) e.stopPropagation();
     window.debugLog('toggleSectionDropdown called');
     const dropdown = document.getElementById('sectionDropdown');
@@ -826,7 +830,7 @@ document.addEventListener('click', function (e) {
     }
 });
 
-async function createNewSection(sectionType = 'text', x = null, y = null) {
+window.createNewSection = async function(sectionType = 'text', x = null, y = null) {
     window.debugLog(`createNewSection called: type=${sectionType}`);
     if (!currentPageId) {
         window.debugLog('ERROR: currentPageId is null', true);
@@ -1366,7 +1370,7 @@ async function reconnectFolder(sectionId) {
 let debounceTimers = {};
 let pendingUpdates = {};
 
-function updateSectionContentDebounced(sectionId, contentType, value) {
+window.updateSectionContentDebounced = function(sectionId, contentType, value) {
     const key = `${sectionId}-${contentType}`;
     pendingUpdates[key] = value;
 
@@ -1493,7 +1497,7 @@ async function changeSectionType(sectionId) {
     renderPageContent();
 }
 
-async function deleteSection(sectionId) {
+window.deleteSection = async function(sectionId) {
     window.debugLog(`deleteSection called: ID=${sectionId}`);
     if (!confirm('このファイルビューを削除しますか？')) {
         window.debugLog('Delete cancelled by user');
@@ -2796,7 +2800,7 @@ function showEmptyContextMenu(e, sectionId) {
 
 // セクション設定モーダル関連
 // セクション設定モーダル関連
-function configureSection(sectionId) {
+window.configureSection = function(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
@@ -2839,10 +2843,10 @@ function configureSection(sectionId) {
 
 
 // フォルダ参照ボタン - ローカルPCのフォルダを選択
-async function openDirectoryBrowser() {
+window.openDirectoryBrowser = async function() {
     window.debugLog('openDirectoryBrowser called');
     if (!('showDirectoryPicker' in window)) {
-        window.debugLog('ERROR: showDirectoryPicker not in window', true);
+        window.debugLog('ERROR: showDirectoryPicker NOT in window', true);
         alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
         return;
     }
@@ -2852,54 +2856,63 @@ async function openDirectoryBrowser() {
         setTimeout(() => btn.style.backgroundColor = '', 200);
     }
 
-    window.debugLog('openDirectoryBrowser entering main logic...');
-
-    console.log('openDirectoryBrowser called, isFolderPickerActive:', isFolderPickerActive);
+    window.debugLog(`openDirectoryBrowser: isFolderPickerActive=${isFolderPickerActive}`);
     if (isFolderPickerActive) {
+        window.debugLog('WARNING: Folder picker already active. Blocking call.', true);
         alert('フォルダ選択が既に進行中です。もし、ダイアログが表示されていない場合は1分待ってから再度お試しください。');
         return;
     }
 
     if (typeof window.showDirectoryPicker !== 'function') {
+        window.debugLog('ERROR: showDirectoryPicker is NOT a function', true);
         alert('エラー: このブラウザの showDirectoryPicker が無効、または非対応です。HTTPS環境であることをご確認ください。');
         return;
     }
 
     let safetyTimeout = setTimeout(() => {
         if (isFolderPickerActive) {
-            console.error('Safety reset: isFolderPickerActive was stuck for 60s. Resetting.');
+            window.debugLog('Safety reset: isFolderPickerActive was stuck for 60s. Resetting.', true);
             isFolderPickerActive = false;
         }
     }, 60000);
 
     try {
         isFolderPickerActive = true;
-        console.log('Calling showDirectoryPicker...');
+        window.debugLog('Invoking window.showDirectoryPicker()...');
         const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-        console.log('Folder selected:', dirHandle.name);
+        window.debugLog(`Folder selected: ${dirHandle.name}`);
+        
         // 選択されたハンドルのパスをインプットに設定（表示用）
         const pathInput = document.getElementById('sectionStoragePath');
         if (pathInput) pathInput.value = dirHandle.name;
-        const sectionId = parseInt(document.getElementById('editingSectionId')?.value);
+        
+        const sectionIdElement = document.getElementById('editingSectionId');
+        const sectionId = sectionIdElement ? parseInt(sectionIdElement.value) : null;
+        window.debugLog(`Current editing sectionId: ${sectionId}`);
+        
         if (sectionId) {
             localDirHandles[sectionId] = dirHandle;
             localDirSubHandles[sectionId] = dirHandle;
             sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
 
-            // 重要: このハンドルをIndexedDBに永続化保存する（リロード時の復元のため）
+            window.debugLog('Saving handle to IndexedDB...');
             await saveFsHandle(sectionId, dirHandle);
+            window.debugLog('Handle saved successfully.');
+        } else {
+            window.debugLog('WARNING: No sectionId found in modal.', true);
         }
     } catch (e) {
         if (e.name !== 'AbortError') {
+            window.debugLog(`Folder selection FAILED: ${e.message}`, true);
             console.error('Folder selection failed:', e);
             alert('フォルダの選択に失敗しました: ' + e.message);
         } else {
-            console.log('Folder selection cancelled by user');
+            window.debugLog('Folder selection cancelled by user');
         }
     } finally {
         isFolderPickerActive = false;
         clearTimeout(safetyTimeout);
-        console.log('isFolderPickerActive reset to false');
+        window.debugLog('isFolderPickerActive reset to false');
     }
 }
 
