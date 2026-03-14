@@ -2,23 +2,49 @@
 (function() {
     const hud = document.createElement('div');
     hud.id = 'debug-hud';
-    hud.style.cssText = 'position:fixed;top:10px;left:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.9);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;pointer-events:auto;';
+    hud.style.cssText = 'position:fixed;top:10px;left:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.9);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;pointer-events:auto;cursor:move;user-select:none;';
     
     const browserInfo = `UA: ${navigator.userAgent.substring(0, 40)}... | HTTPS: ${window.isSecureContext}`;
     
-    hud.innerHTML = '<div style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;">' +
-                    '<div style="display:flex;justify-content:space-between;">' +
-                    '<b>WowNote Debug HUD (v1.9-fallback)</b>' +
-                    '<div>' +
+    hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
+                    '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
+                    '<b>WowNote Debug HUD (v2.0-draggable)</b>' +
+                    '<div style="pointer-events:auto;">' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
                     '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button>' +
                     '</div></div>' +
                     `<div style="font-size:9px;color:#aaa;margin-top:2px;">${browserInfo}</div></div>` +
-                    '<div id="debug-hud-logs"></div>';
+                    '<div id="debug-hud-logs" style="pointer-events:auto;cursor:default;user-select:text;"></div>';
     document.body ? document.body.appendChild(hud) : document.documentElement.appendChild(hud);
+
+    // ドラッグ機能の実装
+    let isDragging = false;
+    let offset = { x: 0, y: 0 };
+
+    hud.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        offset = {
+            x: hud.offsetLeft - e.clientX,
+            y: hud.offsetTop - e.clientY
+        };
+        hud.style.opacity = '0.7';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        hud.style.left = (e.clientX + offset.x) + 'px';
+        hud.style.top = (e.clientY + offset.y) + 'px';
+        hud.style.right = 'auto'; // 初期位置のright指定をクリア
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+        hud.style.opacity = '0.9';
+    });
 })();
 
-window.debugLog('DEBUG: app.js loading v1.9 (Fallback Enabled)');
+window.debugLog('DEBUG: app.js loaded v2.0 (HUD Draggable)');
 
 window.debugLog = function(msg, isError = false) {
     const logContainer = document.getElementById('debug-hud-logs');
@@ -1228,7 +1254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v1.8-final-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.0-draggable [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
