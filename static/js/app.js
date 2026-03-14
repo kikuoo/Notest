@@ -1,3 +1,12 @@
+// DEBUG: 読み込み開始アラート
+alert('DEBUG: Loading app.js... (v1.4-diag)');
+
+// グローバルエラーキャッチ
+window.onerror = function(message, source, lineno, colno, error) {
+    alert(`DEBUG: Global Script Error!\nMessage: ${message}\nSource: ${source}\nLine: ${lineno}:${colno}`);
+    return false;
+};
+
 // グローバル変数
 let currentTabId = null;
 let currentPageId = null;
@@ -28,6 +37,9 @@ function getDeviceId() {
     }
     return id;
 }
+
+// DEBUG: バージョン表示の更新 (DOM読み込み前に実行しようとするとエラーになる可能性があるため、関数外またはDOMContentLoaded内で行う)
+// ここではDOMContentLoaded内で実行するように修正
 
 // デバイス固有の設定を保存・取得
 function saveDeviceSetting(key, value) {
@@ -1130,7 +1142,9 @@ function deleteStorageFileAndHide(sectionId, filename) {
 
 // ページ読み込み完了時の初期化処理
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('App initialization started... (v1.3 - Workspace Debug Mode)');
+    alert('DEBUG: DomContentLoaded triggered. Starting initialization...');
+    try {
+        console.log('App initialization started... (v1.4-diag)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1141,6 +1155,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentWorkspace = parseInt(storedWs);
         console.log('Restored workspace:', currentWorkspace);
     }
+
+    // DEBUG: バージョン表示の更新
+    const debugInfo = document.getElementById('debug-info');
+    if (debugInfo) {
+        debugInfo.innerHTML = 'v1.4-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+    }
+
     renderWorkspaceButtons();
 
     // 2. 基本設定の適用
@@ -1193,6 +1214,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupHistoryTrap();
 
     console.log('App initialization completed.');
+    alert('DEBUG: Initialization finished successfully.');
+    } catch (e) {
+        console.error('CRITICAL: Initialization failed!', e);
+        alert('DEBUG: Initialization FAILED!\nError: ' + e.message + '\nStack: ' + e.stack);
+    }
 });
 
 function applySavedTheme() {
@@ -3767,3 +3793,6 @@ window.addEventListener('popstate', (e) => {
         history.pushState({ isAppTrap: true }, '', location.href);
     }
 });
+
+// DEBUG: 読み込み完了アラート
+alert('DEBUG: app.js loaded successfully. (End of file reached)');
