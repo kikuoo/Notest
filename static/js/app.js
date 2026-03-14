@@ -2,9 +2,9 @@
 (function() {
     const hud = document.createElement('div');
     hud.id = 'debug-hud';
-    hud.style.cssText = 'position:fixed;top:10px;right:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.85);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;';
+    hud.style.cssText = 'position:fixed;top:10px;left:10px;width:350px;max-height:80vh;background:rgba(0,0,0,0.9);color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:5px;z-index:999999;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.5);border:1px solid #444;pointer-events:auto;';
     hud.innerHTML = '<div style="display:flex;justify-content:space-between;border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;">' +
-                    '<b>WowNote Debug HUD (v1.5-hud)</b>' +
+                    '<b>WowNote Debug HUD (v1.7-diag)</b>' +
                     '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button></div>' +
                     '<div id="debug-hud-logs"></div>';
     document.body ? document.body.appendChild(hud) : document.documentElement.appendChild(hud);
@@ -25,7 +25,14 @@ window.debugLog = function(msg, isError = false) {
     console.log('HUD:', msg);
 };
 
-window.debugLog('DEBUG: app.js started loading...');
+window.debugLog('DEBUG: app.js started loading (v1.7)...');
+
+// 全域クリックハンドラ (デバッグ用)
+document.addEventListener('click', (e) => {
+    const target = e.target;
+    const info = `${target.tagName}${target.id ? '#' + target.id : ''}${target.className ? '.' + target.className.replace(/ /g, '.') : ''}`;
+    window.debugLog(`Global Click: ${info}`);
+}, true);
 
 window.onerror = function(message, source, lineno, colno, error) {
     const errMsg = `ERROR: ${message}\nAt: ${source}:${lineno}:${colno}`;
@@ -659,14 +666,16 @@ function renderPageContent() {
     const addSectionBtn = document.createElement('button');
     addSectionBtn.className = 'btn-add-section';
     addSectionBtn.innerHTML = '➕';
-    addSectionBtn.title = 'ファイルビューを追加';
     addSectionBtn.onclick = (e) => {
+        window.debugLog('addSectionBtn.onclick TRIGGERED');
+        e.stopPropagation();
         if (typeof window.toggleSectionDropdown === 'function') {
             window.toggleSectionDropdown(e);
         } else {
             window.debugLog('ERROR: window.toggleSectionDropdown not found', true);
         }
     };
+    window.debugLog('addSectionBtn.onclick handler attached');
 
     const dropdown = document.createElement('div');
     dropdown.className = 'section-dropdown';
@@ -1184,7 +1193,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v1.5-hud)');
+        window.debugLog('App initialization started... (v1.7-diag)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1199,7 +1208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v1.5-hud [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v1.7-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
@@ -2844,75 +2853,55 @@ window.configureSection = function(sectionId) {
 
 // フォルダ参照ボタン - ローカルPCのフォルダを選択
 window.openDirectoryBrowser = async function() {
-    window.debugLog('openDirectoryBrowser called');
-    if (!('showDirectoryPicker' in window)) {
-        window.debugLog('ERROR: showDirectoryPicker NOT in window', true);
-        alert('このブラウザはローカルフォルダ選択に対応していません。Chrome または Edge をお使いください。');
+    window.debugLog('openDirectoryBrowser called (START)');
+    
+    // ユーザージェスチャを即座に使用
+    let pickerPromise = null;
+    if ('showDirectoryPicker' in window && typeof window.showDirectoryPicker === 'function') {
+        window.debugLog('Immediately invoking showDirectoryPicker...');
+        pickerPromise = window.showDirectoryPicker({ mode: 'read' });
+    } else {
+        window.debugLog('ERROR: showDirectoryPicker NOT supported', true);
+        alert('このブラウザはローカルフォルダ選択に対応していません。');
         return;
     }
-    const btn = document.getElementById('btnBrowseSectionPath');
-    if (btn) {
-        btn.style.backgroundColor = '#e0f0ff';
-        setTimeout(() => btn.style.backgroundColor = '', 200);
-    }
 
-    window.debugLog(`openDirectoryBrowser: isFolderPickerActive=${isFolderPickerActive}`);
     if (isFolderPickerActive) {
-        window.debugLog('WARNING: Folder picker already active. Blocking call.', true);
-        alert('フォルダ選択が既に進行中です。もし、ダイアログが表示されていない場合は1分待ってから再度お試しください。');
-        return;
+        window.debugLog('WARNING: isFolderPickerActive is true. Current call might collide.', true);
     }
-
-    if (typeof window.showDirectoryPicker !== 'function') {
-        window.debugLog('ERROR: showDirectoryPicker is NOT a function', true);
-        alert('エラー: このブラウザの showDirectoryPicker が無効、または非対応です。HTTPS環境であることをご確認ください。');
-        return;
-    }
-
+    
+    isFolderPickerActive = true;
     let safetyTimeout = setTimeout(() => {
         if (isFolderPickerActive) {
-            window.debugLog('Safety reset: isFolderPickerActive was stuck for 60s. Resetting.', true);
+            window.debugLog('Safety reset triggered after 60s', true);
             isFolderPickerActive = false;
         }
     }, 60000);
 
     try {
-        isFolderPickerActive = true;
-        window.debugLog('Invoking window.showDirectoryPicker()...');
-        const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        const dirHandle = await pickerPromise;
         window.debugLog(`Folder selected: ${dirHandle.name}`);
         
-        // 選択されたハンドルのパスをインプットに設定（表示用）
         const pathInput = document.getElementById('sectionStoragePath');
         if (pathInput) pathInput.value = dirHandle.name;
         
-        const sectionIdElement = document.getElementById('editingSectionId');
-        const sectionId = sectionIdElement ? parseInt(sectionIdElement.value) : null;
-        window.debugLog(`Current editing sectionId: ${sectionId}`);
-        
+        const sectionId = parseInt(document.getElementById('editingSectionId')?.value);
         if (sectionId) {
             localDirHandles[sectionId] = dirHandle;
             localDirSubHandles[sectionId] = dirHandle;
-            sectionNavigationHistory[sectionId] = { history: [dirHandle.name], currentIndex: 0, handles: [dirHandle] };
-
-            window.debugLog('Saving handle to IndexedDB...');
             await saveFsHandle(sectionId, dirHandle);
-            window.debugLog('Handle saved successfully.');
-        } else {
-            window.debugLog('WARNING: No sectionId found in modal.', true);
+            window.debugLog('Handle saved to memory and IDB.');
         }
     } catch (e) {
-        if (e.name !== 'AbortError') {
-            window.debugLog(`Folder selection FAILED: ${e.message}`, true);
-            console.error('Folder selection failed:', e);
-            alert('フォルダの選択に失敗しました: ' + e.message);
+        if (e.name === 'AbortError') {
+            window.debugLog('Picker cancelled by user');
         } else {
-            window.debugLog('Folder selection cancelled by user');
+            window.debugLog(`Picker Error: ${e.message}`, true);
         }
     } finally {
         isFolderPickerActive = false;
         clearTimeout(safetyTimeout);
-        window.debugLog('isFolderPickerActive reset to false');
+        window.debugLog('openDirectoryBrowser FINISHED (resetting flag)');
     }
 }
 
