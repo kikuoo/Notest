@@ -23,8 +23,9 @@ window.debugLog = function(msg, isError = false) {
     
     hud.innerHTML = '<div id="debug-hud-header" style="border-bottom:1px solid #444;margin-bottom:5px;padding-bottom:3px;cursor:move;">' +
                     '<div style="display:flex;justify-content:space-between;pointer-events:none;">' +
-                    '<b>WowNote Debug HUD (v2.1-fix)</b>' +
+                    '<b>WowNote Debug HUD (v2.2-picker-diag)</b>' +
                     '<div style="pointer-events:auto;">' +
+                    '<button onclick="if(window.openDirectoryBrowser) window.openDirectoryBrowser(); event.stopPropagation();" style="background:#070;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Test Picker</button>' +
                     '<button onclick="isFolderPickerActive=false; window.debugLog(\'FORCED RESET\'); event.stopPropagation();" style="background:#d44;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;margin-right:5px;">Reset</button>' +
                     '<button onclick="document.getElementById(\'debug-hud-logs\').innerHTML=\'\'; event.stopPropagation();" style="background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:1px 5px;">Clear</button>' +
                     '</div></div>' +
@@ -32,34 +33,28 @@ window.debugLog = function(msg, isError = false) {
                     '<div id="debug-hud-logs" style="pointer-events:auto;cursor:default;user-select:text;"></div>';
     document.body ? document.body.appendChild(hud) : document.documentElement.appendChild(hud);
 
-    // ドラッグ機能の実装
+    // ドラッグ機能の実装 (簡略版)
     let isDragging = false;
     let offset = { x: 0, y: 0 };
-
     hud.addEventListener('mousedown', (e) => {
         if (e.target.tagName === 'BUTTON') return;
         isDragging = true;
-        offset = {
-            x: hud.offsetLeft - e.clientX,
-            y: hud.offsetTop - e.clientY
-        };
+        offset = { x: hud.offsetLeft - e.clientX, y: hud.offsetTop - e.clientY };
         hud.style.opacity = '0.7';
     });
-
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         hud.style.left = (e.clientX + offset.x) + 'px';
         hud.style.top = (e.clientY + offset.y) + 'px';
         hud.style.right = 'auto';
     });
-
     document.addEventListener('mouseup', () => {
         isDragging = false;
         hud.style.opacity = '0.9';
     });
 })();
 
-window.debugLog('DEBUG: app.js loaded v2.1 (HUD Fix)');
+window.debugLog('DEBUG: app.js loaded v2.2 (Picker Diag Active)');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -73,7 +68,6 @@ window.onerror = function(message, source, lineno, colno, error) {
     window.debugLog(errMsg, true);
     return false;
 };
-// --- DEBUG HUD SYSTEM END ---
 // --- DEBUG HUD SYSTEM END ---
 
 // グローバル変数
@@ -1238,7 +1232,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v1.8-final-diag)');
+        window.debugLog('App initialization started... (v2.2-picker-diag)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1253,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v2.1-fix [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = 'v2.2-picker-diag [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
     }
 
     renderWorkspaceButtons();
