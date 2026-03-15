@@ -830,11 +830,14 @@ def open_local_file():
     if not file_path:
         return jsonify({'error': 'Path is required'}), 400
         
+    print(f"DEBUG: Received open-local path: {file_path}")
     file_path = os.path.expanduser(file_path)
     file_path = os.path.abspath(file_path)
+    print(f"DEBUG: Expanded open-local path: {file_path}")
     
     if not os.path.exists(file_path):
-        return jsonify({'error': 'File not found'}), 404
+        print(f"DEBUG: File does not exist: {file_path}")
+        return jsonify({'error': f'File not found: {file_path}'}), 404
         
     try:
         if os.name == 'nt': # Windows

@@ -2197,12 +2197,17 @@ async function openFileNativeOS(sectionId, fileName) {
     if (!fullPath) return;
 
     try {
+        // showAlert: false にして独自にエラーハンドリングする
         await apiCall('/api/system/open-local', {
             method: 'POST',
-            body: JSON.stringify({ path: fullPath })
+            body: JSON.stringify({ path: fullPath }),
+            showAlert: false
         });
     } catch (e) {
         console.error('Failed to open file natively:', e);
+        // エラー詳細を表示（File not found の場合にパスも含める）
+        alert(`OSアプリで開けませんでした:\n${e.message}\n\nパス: ${fullPath}`);
+        
         // エラー時はフォールバックとしてブラウザ上で開く
         if (localDirSubHandles[sectionId]) {
             openLocalFile(sectionId, fileName);
@@ -2218,7 +2223,7 @@ async function getFullPathForFile(sectionId, fileName) {
     if (!section) return null;
     let basePath = '';
 
-    // 端末ごとのローカル設定があるか確認
+    // 端末ごとのローカル設定があるか確認 (localStorage)
     const localOverrideJSON = localStorage.getItem('local_storage_config_' + sectionId);
     if (localOverrideJSON) {
         try {
@@ -2237,18 +2242,23 @@ async function getFullPathForFile(sectionId, fileName) {
         basePath = data.path || '';
     }
 
-    // サブフォルダに移動している場合、履歴から現在のパスを構築
+    // 履歴から現在のパスを取得（サブフォルダ対応）
     const navCtx = sectionNavigationHistory[sectionId];
     if (navCtx && navCtx.history && navCtx.history.length > 0) {
+        // history[0] がベースパス、それ以降がサブフォルダであることを想定
+        // navigateToFolder では newPath = path/folderName としているので
+        // history[currentIndex] は常にそのディレクトリのフルパスが入っているはず
         basePath = navCtx.history[navCtx.currentIndex];
     }
 
     if (!basePath) {
-        alert('ファイルのパスが特定できませんでした。');
+        alert('フォルダのベースパスが設定されていません。設定からフォルダを指定してください。');
         return null;
     }
 
-    return basePath.endsWith('/') ? `${basePath}${fileName}` : `${basePath}/${fileName}`;
+    // スラッシュの重複や欠落を避けつつ結合
+    basePath = basePath.replace(/[\\\/]+$/, ''); // 末尾のスラッシュを削除
+    return `${basePath}/${fileName}`;
 }
 
 // 特定のプログラムでファイルを開く
