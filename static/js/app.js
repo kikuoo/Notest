@@ -2052,14 +2052,14 @@ async function fetchSectionFiles(sectionId) {
                 }
                 const isImage = /\\.(jpg|jpeg|png|gif|webp|svg)$/i.test(entry.name);
                 const isPdf = /\\.pdf$/i.test(entry.name);
-                const isZip = /\\.(zip|rar|7z)$/i.test(entry.name);
-                let icon = isImage ? '🖼' : isPdf ? '📕' : isZip ? '📦' : '📄';
+                const isOffice = /\\.(xlsx|xls|docx|doc|pptx|ppt)$/i.test(entry.name);
+                let icon = isImage ? '🖼' : isPdf ? '📕' : isZip ? '📦' : isOffice ? '📊' : '📄';
                 return `
                     <div class="file-item"
                          title="${escapeHtml(entry.name)}"
                          data-filename="${escapeHtml(entry.name)}"
                          onclick="showFilePreview(${sectionId}, this.dataset.filename)"
-                         ondblclick="openFileNativeOS(${sectionId}, this.dataset.filename)"
+                         ondblclick="window.isLocalServer() ? openFileNativeOS(${sectionId}, this.dataset.filename) : (['xlsx','xls','docx','doc','pptx','ppt'].includes(this.dataset.filename.split('.').pop().toLowerCase()) ? openFileNativeOS(${sectionId}, this.dataset.filename) : showFilePreview(${sectionId}, this.dataset.filename))"
                          oncontextmenu="showFileContextMenu(event, ${sectionId}, this.dataset.filename)">
                         <div class="file-icon">${icon}</div>
                         <div class="file-info">
@@ -2204,6 +2204,18 @@ async function openFileNativeOS(sectionId, fileName) {
     // リモートサーバーの場合はOSアプリ起動をスキップしてプレビュー/ダウンロードにフォールバック
     if (!window.isLocalServer()) {
         console.log('Remote server detected, skipping native OS open.');
+        
+        const ext = fileName.split('.').pop().toLowerCase();
+        const isOfficeFile = ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt'].includes(ext);
+
+        if (isOfficeFile && !localDirSubHandles[sectionId]) {
+            // リモートサーバー上のOfficeファイルの場合、Office Online Previewを試みる
+            const fileUrl = `${window.location.origin}${window.getApiUrl(`/api/sections/${sectionId}/files/${encodeURIComponent(fileName)}`)}`;
+            const officeUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
+            window.open(officeUrl, '_blank');
+            return;
+        }
+
         if (localDirSubHandles[sectionId]) {
             openLocalFile(sectionId, fileName);
         } else {
