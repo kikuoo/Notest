@@ -243,6 +243,36 @@ async function saveEditedFile(sectionId, filename) {
                 お使いのブラウザは音声タグをサポートしていません。
             </audio>
         `;
+    } else if (['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt'].includes(ext)) {
+        // Office ファイル (リモートサーバー時)
+        const isRemote = !window.isLocalServer();
+        if (isRemote) {
+            const officeUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(window.location.origin + downloadUrl)}`;
+            previewHTML = `
+                <div class="preview-file-info">
+                    <p><strong>ファイル名:</strong> ${escapeHtml(filename)}</p>
+                    <p><strong>種類:</strong> Officeファイル (Preview)</p>
+                    <p style="margin-top: 20px;">ブラウザ上で内容を確認できます。</p>
+                    <button class="btn-primary" onclick="window.open('${officeUrl}', '_blank')" style="margin-top: 10px;">
+                        別タブで大きく表示
+                    </button>
+                    <p style="margin-top: 20px; font-size: 11px; color: #666;">
+                        ※デスクトップ版Excelで開きたい場合は、NotestをMac本体(localhost)で起動してください。
+                    </p>
+                </div>
+                <iframe src="${officeUrl}" style="width: 100%; height: calc(100% - 180px); min-height: 500px; border: none;"></iframe>
+            `;
+        } else {
+            previewHTML = `
+                <div class="preview-file-info">
+                    <p><strong>ファイル名:</strong> ${escapeHtml(filename)}</p>
+                    <p><strong>種類:</strong> Officeファイル</p>
+                    <button class="btn-primary" onclick="openFileNativeOS(${sectionId}, '${escapeHtml(filename)}')" style="margin-top: 10px;">
+                        デスクトップアプリで開く
+                    </button>
+                </div>
+            `;
+        }
     } else {
         // その他のファイル
         previewHTML = `
@@ -250,9 +280,17 @@ async function saveEditedFile(sectionId, filename) {
                 <p><strong>ファイル名:</strong> ${escapeHtml(filename)}</p>
                 <p><strong>種類:</strong> ${ext.toUpperCase()}ファイル</p>
                 <p style="margin-top: 20px;">このファイル形式はプレビューできません。</p>
-                <button class="btn-primary" onclick="window.open('${downloadUrl}', '_blank')" style="margin-top: 10px;">
-                    ダウンロード
-                </button>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="btn-primary" onclick="window.open('${downloadUrl}', '_blank')">
+                        ダウンロード
+                    </button>
+                    <button class="btn-secondary" onclick="openFileNativeOS(${sectionId}, '${escapeHtml(filename)}')">
+                        OSアプリで開いてみる
+                    </button>
+                </div>
+                <p style="margin-top: 15px; font-size: 11px; color: #999;">
+                    ※OSアプリで開くにはNotestのローカル起動が必要です。
+                </p>
             </div>
         `;
     }

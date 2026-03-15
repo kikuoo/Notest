@@ -2201,8 +2201,20 @@ async function openFileNativeOS(sectionId, fileName) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
+    // デスクトップアプリ（pywebview）環境のチェック
+    if (window.pywebview && window.pywebview.api) {
+        console.log('Desktop bridge (pywebview) detected. Opening via native API.');
+        try {
+            const result = await window.pywebview.api.open_path(fullPath);
+            if (result && result.success) return;
+            // 失敗した場合は通常フロー（API経由）で続行を試みる
+        } catch (e) {
+            console.error('Desktop bridge error:', e);
+        }
+    }
+
     // リモートサーバーの場合はOSアプリ起動をスキップしてプレビュー/ダウンロードにフォールバック
-    if (!window.isLocalServer()) {
+    if (!window.isLocalServer() && !(window.pywebview && window.pywebview.api)) {
         const msg = '【重要】デスクトップアプリ（Excel等）で直接開く機能は、NotestをPC(localhost)で起動している場合のみ利用可能です。\n\n現在はリモートサーバー接続のため、プレビュー表示を行います。起動ガイドが必要な場合は設定画面をご確認ください。';
         console.log(msg);
         
