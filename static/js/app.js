@@ -206,6 +206,14 @@ window.getApiUrl = function (path) {
 };
 
 // API呼び出し関数
+// ネットワーク状態・ホスト判定用ヘルパー
+window.isLocalServer = function() {
+    return window.location.hostname === 'localhost' || 
+           window.location.hostname === '127.0.0.1' || 
+           window.location.hostname.startsWith('192.168.') ||
+           window.location.hostname.startsWith('10.');
+};
+
 // API呼び出し関数
 window.apiCall = async function(url, options = {}) {
     const showAlert = options.showAlert !== false;
@@ -2193,11 +2201,22 @@ async function openFileNativeOS(sectionId, fileName) {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
+    // リモートサーバーの場合はOSアプリ起動をスキップしてプレビュー/ダウンロードにフォールバック
+    if (!window.isLocalServer()) {
+        console.log('Remote server detected, skipping native OS open.');
+        if (localDirSubHandles[sectionId]) {
+            openLocalFile(sectionId, fileName);
+        } else {
+            // リモートの場合はプレビューを優先
+            showFilePreview(sectionId, fileName);
+        }
+        return;
+    }
+
     let fullPath = await getFullPathForFile(sectionId, fileName);
     if (!fullPath) return;
 
     try {
-        // showAlert: false にして独自にエラーハンドリングする
         await apiCall('/api/system/open-local', {
             method: 'POST',
             body: JSON.stringify({ path: fullPath }),
@@ -2205,14 +2224,12 @@ async function openFileNativeOS(sectionId, fileName) {
         });
     } catch (e) {
         console.error('Failed to open file natively:', e);
-        // エラー詳細を表示（File not found の場合にパスも含める）
-        alert(`OSアプリで開けませんでした:\n${e.message}\n\nパス: ${fullPath}`);
         
-        // エラー時はフォールバックとしてブラウザ上で開く
+        // エラー時はフォールバックとしてブラウザ上で開く/プレビュー
         if (localDirSubHandles[sectionId]) {
             openLocalFile(sectionId, fileName);
         } else {
-            downloadStorageFile(sectionId, fileName);
+            showFilePreview(sectionId, fileName);
         }
     }
 }

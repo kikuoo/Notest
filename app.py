@@ -827,16 +827,24 @@ def open_local_file():
     data = request.json
     file_path = data.get('path')
     
+    import unicodedata
     if not file_path:
         return jsonify({'error': 'Path is required'}), 400
         
-    print(f"DEBUG: Received open-local path: {file_path}")
+    # Normalize path encoding (handles NFD/NFC issues)
+    file_path = unicodedata.normalize('NFC', file_path)
+    
     file_path = os.path.expanduser(file_path)
-    file_path = os.path.abspath(file_path)
-    print(f"DEBUG: Expanded open-local path: {file_path}")
+    if not os.path.isabs(file_path):
+        # アプリのルートディレクトリを基準にする
+        app_root = os.path.dirname(os.path.abspath(__file__))
+        abs_path = os.path.abspath(os.path.join(app_root, file_path))
+        if os.path.exists(abs_path):
+            file_path = abs_path
+        else:
+            file_path = os.path.abspath(file_path) # CWD基準の元の挙動
     
     if not os.path.exists(file_path):
-        print(f"DEBUG: File does not exist: {file_path}")
         return jsonify({'error': f'File not found: {file_path}'}), 404
         
     try:
@@ -896,11 +904,20 @@ def open_local_file_with():
     file_path = data.get('path')
     program = data.get('program') # 'vscode', 'textedit', etc.
     
+    import unicodedata
     if not file_path:
         return jsonify({'error': 'Path is required'}), 400
         
+    file_path = unicodedata.normalize('NFC', file_path)
     file_path = os.path.expanduser(file_path)
-    file_path = os.path.abspath(file_path)
+    
+    if not os.path.isabs(file_path):
+        app_root = os.path.dirname(os.path.abspath(__file__))
+        abs_path = os.path.abspath(os.path.join(app_root, file_path))
+        if os.path.exists(abs_path):
+            file_path = abs_path
+        else:
+            file_path = os.path.abspath(file_path)
     
     if not os.path.exists(file_path):
         return jsonify({'error': 'File not found'}), 404
