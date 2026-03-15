@@ -6,7 +6,7 @@ echo "  WowNote_Mac.dmg の作成を開始します"
 echo "------------------------------------------------"
 
 # 変数設定
-APP_NAME="Notest"
+APP_NAME="WowNote"
 VOLUME_NAME="WowNoteInstaller"
 DMG_NAME="WowNote_Mac.dmg"
 SOURCE_DIR="dist/${APP_NAME}.app"
