@@ -2203,7 +2203,8 @@ async function openFileNativeOS(sectionId, fileName) {
 
     // リモートサーバーの場合はOSアプリ起動をスキップしてプレビュー/ダウンロードにフォールバック
     if (!window.isLocalServer()) {
-        console.log('Remote server detected, skipping native OS open.');
+        const msg = '【重要】デスクトップアプリ（Excel等）で直接開く機能は、NotestをPC(localhost)で起動している場合のみ利用可能です。\n\n現在はリモートサーバー接続のため、プレビュー表示を行います。起動ガイドが必要な場合は設定画面をご確認ください。';
+        console.log(msg);
         
         const ext = fileName.split('.').pop().toLowerCase();
         const isOfficeFile = ['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt'].includes(ext);
@@ -2221,6 +2222,11 @@ async function openFileNativeOS(sectionId, fileName) {
         } else {
             // リモートの場合はプレビューを優先
             showFilePreview(sectionId, fileName);
+            // ユーザーに一度だけ通知（複数回出ると煩わしいため、セッション中一度などの考慮が必要かもしれないが、まずはalertで明示）
+            if (!window._remoteOpenWarned) {
+                alert(msg);
+                window._remoteOpenWarned = true;
+            }
         }
         return;
     }
