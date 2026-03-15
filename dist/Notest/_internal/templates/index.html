@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WowNote - OneNote風ノートアプリ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/preview-panel.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/section-dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notepad-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- サイドバー -->
+        <div class="sidebar">
+            <div class="workspace-switcher">
+                <button class="ws-btn active" onclick="switchWorkspace(1)">1</button>
+                <button class="ws-btn" onclick="switchWorkspace(2)">2</button>
+                <button class="ws-btn" onclick="switchWorkspace(3)">3</button>
+            </div>
+            <div class="sidebar-header">
+                <h1 id="appTitle">WowNote</h1>
+                <div id="debug-info" style="font-size: 10px; color: #888; margin-top: -10px; margin-bottom: 5px;">v1.3
+                    [WS: <span id="current-ws-display">1</span>]</div>
+                <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
+                    <button class="btn-new-tab" id="btnNewTab">+ 新しいタブ</button>
+                    <button class="btn-secondary" id="btnManageHiddenTabs"
+                        style="font-size: 11px; padding: 4px; display: none;">非表示のタブを見る</button>
+                </div>
+            </div>
+            <div class="tabs-list" id="tabsList">
+                <!-- タブが動的に追加されます -->
+            </div>
+            <div class="sidebar-footer">
+                <!-- ユーザーメニュー -->
+                <div id="userMenuContainer"></div>
+                <!-- <button class="btn-settings" id="btnToggleTheme">🌓 テーマ切替</button> -->
+                <button class="btn-settings" id="btnSettings">⋮ 設定</button>
+            </div>
+        </div>
+
+        <!-- メインコンテンツエリア -->
+        <div class="main-content">
+            <button id="btnSidebarToggle" class="sidebar-toggle-btn" title="サイドバーの表示/非表示">≡</button>
+            <!-- タブバー -->
+            <div class="tab-bar" id="tabBar">
+                <!-- ページタブが動的に追加されます -->
+            </div>
+
+            <!-- ページコンテンツ -->
+            <div class="page-content" id="pageContent">
+                <div class="empty-state" id="emptyState">
+                    <p>タブを選択するか、新しいタブを作成してください</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 新しいタブ -->
+    <div class="modal" id="modalNewTab">
+        <div class="modal-content">
+            <span class="close" id="closeNewTab">&times;</span>
+            <h2>新しいタブを作成</h2>
+            <input type="text" id="newTabName" placeholder="タブ名を入力" autofocus>
+            <div class="modal-actions">
+                <button class="btn-primary" id="btnCreateTab">作成</button>
+                <button class="btn-secondary" id="btnCancelTab">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 新しいページ -->
+    <div class="modal" id="modalNewPage">
+        <div class="modal-content">
+            <span class="close" id="closeNewPage">&times;</span>
+            <h2>新しいページを作成</h2>
+            <input type="text" id="newPageName" placeholder="ページ名を入力" autofocus>
+            <div class="modal-actions">
+                <button class="btn-primary" id="btnCreatePage">作成</button>
+                <button class="btn-secondary" id="btnCancelPage">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 非表示タブの管理 -->
+    <div class="modal" id="modalHiddenTabs">
+        <div class="modal-content">
+            <span class="close" id="closeHiddenTabs">&times;</span>
+            <h2>非表示のタブ (このPCのみ)</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">以下のタブは、現在のPC上で非表示に設定されています。</p>
+            <div id="hiddenTabsListContainer"
+                style="max-height: 250px; overflow-y: auto; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 20px;">
+                <!-- 非表示タブリストが動的に追加されます -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="btnCloseHiddenTabsModal">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: 設定 -->
+    <div class="modal" id="modalSettings">
+        <div class="modal-content">
+            <span class="close" id="closeSettings">&times;</span>
+            <h2>設定</h2>
+            <div class="form-group">
+                <label>テーマ設定:</label>
+                <button class="btn-secondary" id="btnToggleThemeInSettings">🌓 ダークモード切替</button>
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                    <span>ファイルビューのメモ欄を表示</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleMemoField" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </label>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    オフにすると、ファイルビューのメモ欄が非表示になります
+                </div>
+            </div>
+
+            <!-- サブスクリプション情報 -->
+            <div class="form-group" style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px;">
+                <h3 style="margin-bottom: 15px;">ご利用状況</h3>
+                <div id="subscriptionStatusContainer" style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                    <p>ステータス取得中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- アプリロックモーダル (トライアル・サブスク終了後) -->
+    <div class="modal" id="modalAppLock" style="display: none; z-index: 99999; background-color: rgba(0,0,0,0.85);">
+        <div class="modal-content" style="text-align: center; max-width: 450px; padding: 40px 30px;">
+            <h2 style="color: #d9534f; margin-bottom: 20px;">ご利用期間が終了しました</h2>
+            <p style="margin-bottom: 15px; font-size: 15px;">30日間の無料トライアル期間、または現在のサブスクリプションの有効期限が終了しました。</p>
+            <p style="margin-bottom: 25px; font-size: 15px;">引き続きWowNoteをご利用いただくには、以下のボタンより決済（サブスクリプション登録）をお願いいたします。</p>
+            <div class="modal-actions" style="justify-content: center;">
+                <a id="btnSubscribeNow" href="#" class="btn-primary"
+                    style="text-decoration: none; padding: 12px 24px; font-size: 16px;">サブスクリプション登録へ進む</a>
+            </div>
+            <div style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button class="btn-secondary" onclick="handleLogout()" style="width: 100%;">ログアウト</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: ストレージ追加 (削除) -->
+
+    <!-- モーダル: セクション設定 -->
+    <div class="modal" id="modalSectionSettings">
+        <div class="modal-content">
+            <span class="close" id="closeSectionSettings">&times;</span>
+            <h2>ファイルビュー設定</h2>
+            <div class="form-group">
+                <label>ファイルビュー名:</label>
+                <input type="text" id="sectionNameInput" placeholder="ファイルビュー名">
+            </div>
+
+            <div class="form-group" style="display: none;">
+                <label>ストレージタイプ:</label>
+                <select id="sectionStorageType">
+                    <option value="local">ローカル (Local Folder)</option>
+                    <option value="onedrive">OneDrive</option>
+                    <option value="googledrive">Google Drive</option>
+                    <option value="icloud">iCloud</option>
+                </select>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    クラウドストレージを選択すると、自動的にパスが設定されます
+                </div>
+            </div>
+            <div class="form-group">
+                <label>フォルダパス:</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="sectionStoragePath" placeholder="フォルダパスを入力"
+                        style="margin-bottom: 0; flex: 1;">
+                    <button class="btn-secondary" id="btnBrowseSectionPath" style="white-space: nowrap;">参照</button>
+                </div>
+            </div>
+
+            <input type="hidden" id="editingSectionId">
+
+            <div style="border-top: 1px solid #eee; margin-top: 20px; padding-top: 15px;">
+                <button class="btn-secondary" id="btnDeleteSection"
+                    style="color: #d9534f; border-color: #d9534f; width: 100%;">このファイルビューを削除</button>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-primary" id="btnSaveSectionSettings">保存</button>
+                <button class="btn-secondary" id="btnCancelSectionSettings">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル: ディレクトリブラウザ -->
+    <div class="modal" id="modalDirectoryBrowser" style="z-index: 10001;">
+        <div class="modal-content" style="max-width: 600px; height: 70vh; display: flex; flex-direction: column;">
+            <span class="close" id="closeDirectoryBrowser">&times;</span>
+            <h2>フォルダ選択</h2>
+            <div
+                style="background: #f0f0f0; padding: 10px; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 10px;">
+                <button class="btn-secondary" id="btnDirUp" style="padding: 5px 10px;">⬆️ 上へ</button>
+                <div id="currentBrowsePath"
+                    style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    /
+                </div>
+            </div>
+            <div id="directoryList" style="flex: 1; overflow-y: auto; padding: 10px;">
+                <!-- ディレクトリ一覧がここに表示されます -->
+            </div>
+            <div class="modal-actions" style="margin-top: 0; padding-top: 15px; border-top: 1px solid #eee;">
+                <button class="btn-secondary" id="btnCreateNewFolder" style="margin-right: auto;">+ 新規フォルダ</button>
+                <div style="margin-right: 10px; font-size: 11px; color: #666; cursor: pointer; text-decoration: underline;" onclick="hideModal('modalDirectoryBrowser'); window.openDirectoryBrowser();">
+                    ブラウザ標準の選択画面を使う (推奨)
+                </div>
+                <button class="btn-primary" id="btnSelectDirectory">このフォルダを選択</button>
+                <button class="btn-secondary" id="btnCancelDirectoryBrowser">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ファイルプレビューパネル -->
+    <div id="filePreviewPanel" class="file-preview-panel">
+        <div id="previewResizeHandle" class="preview-resize-handle"></div>
+        <div class="preview-header">
+            <h3 id="previewFileName">プレビュー</h3>
+            <button class="preview-close-btn" onclick="closeFilePreview()">×</button>
+        </div>
+        <div id="previewContent" class="preview-content">
+            <div class="preview-placeholder">ファイルを選択してください</div>
+        </div>
+    </div>
+
+    <!-- プレビューパネル表示/非表示ボタン -->
+    <button id="togglePreviewBtn" class="toggle-preview-btn" onclick="toggleFilePreview()" title="プレビューパネルを表示/非表示">
+        📄
+    </button>
+
+    <!-- ログインモーダル -->
+    <div id="loginModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <button class="close-modal" onclick="hideLoginModal()">×</button>
+            <div class="auth-modal-header">
+                <h2>ログイン</h2>
+                <p>WowNoteにログイン</p>
+            </div>
+            <form class="auth-form" onsubmit="handleLogin(event)">
+                <div id="loginError" class="auth-error"></div>
+                <div class="auth-form-group">
+                    <label for="loginEmail">メールアドレス</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="auth-form-group">
+                    <label for="loginPassword">パスワード</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="auth-btn">ログイン</button>
+            </form>
+            <div class="auth-link">
+                アカウントをお持ちでない方は <a href="#" onclick="showRegistrationModal(); return false;">新規登録</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登録モーダル -->
+    <div id="registrationModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <button class="close-modal" onclick="hideRegistrationModal()">×</button>
+
+            <!-- ステップ1: メールアドレス入力 -->
+            <div id="emailStep" class="auth-step active">
+                <div class="auth-modal-header">
+                    <h2>新規登録</h2>
+                    <p>メールアドレスを入力してください</p>
+                </div>
+                <form class="auth-form" onsubmit="handleEmailSubmit(event)">
+                    <div id="emailError" class="auth-error"></div>
+                    <div class="auth-form-group">
+                        <label for="regEmailInput">メールアドレス</label>
+                        <input type="email" id="regEmailInput" required>
+                    </div>
+                    <button type="submit" class="auth-btn">確認メールを送信</button>
+                </form>
+                <div class="auth-link">
+                    既にアカウントをお持ちの方は <a href="#" onclick="showLoginModal(); return false;">ログイン</a>
+                </div>
+            </div>
+
+            <!-- ステップ2: メール確認待ち -->
+            <div id="verificationStep" class="auth-step">
+                <div class="verification-message">
+                    <div class="icon">📧</div>
+                    <h3>確認メールを送信しました</h3>
+                    <p>
+                        <span class="verification-email" id="verificationEmail"></span> 宛に確認メールを送信しました。<br>
+                        メール内のリンクをクリックして、登録を続けてください。
+                    </p>
+                    <p style="font-size: 12px; color: #999;">
+                        ※メールが届かない場合は、迷惑メールフォルダをご確認ください。
+                    </p>
+                </div>
+            </div>
+
+            <!-- ステップ3: ユーザー情報入力 -->
+            <div id="registrationStep" class="auth-step">
+                <div class="auth-modal-header">
+                    <h2>パスワード設定</h2>
+                    <p>登録を完了してください</p>
+                </div>
+                <form class="auth-form" onsubmit="handleRegistration(event)">
+                    <div id="registrationError" class="auth-error"></div>
+                    <input type="hidden" id="regEmail">
+                    <input type="hidden" id="regToken">
+                    <div class="auth-form-group">
+                        <label for="regPassword">パスワード（8文字以上）</label>
+                        <input type="password" id="regPassword" minlength="8" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="regConfirmPassword">パスワード（確認）</label>
+                        <input type="password" id="regConfirmPassword" minlength="8" required>
+                    </div>
+                    <div class="auth-checkbox-group">
+                        <input type="checkbox" id="agreeTerms" required>
+                        <label for="agreeTerms">
+                            <a href="/privacy-policy" target="_blank">プライバシーポリシー</a>と
+                            <a href="/terms-of-service" target="_blank">利用規約</a>に同意します
+                        </label>
+                    </div>
+                    <button type="submit" class="auth-btn">登録</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=1.3"></script>
+    <script src="{{ url_for('static', filename='js/file-preview.js') }}?v=1.0"></script>
+    <script src="{{ url_for('static', filename='js/image-functions.js') }}?v=1.0"></script>
+    <script src="{{ url_for('static', filename='js/notepad-settings.js') }}?v=1.0"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}?v=1.0"></script>
+</body>
+
+</html>
