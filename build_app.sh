@@ -15,9 +15,10 @@ fi
 # --add-data: 静的リソースとテンプレートを同梱
 # --icon: 必要があればパスを指定
 # ※ mysqlなどを使用しているため、隠れたインポートが必要な場合があるため追加
-pyinstaller --noconfirm --windowed --name "Notest" \
+pyinstaller --noconfirm --windowed --name "WowNote" \
     --add-data "static:static" \
     --add-data "templates:templates" \
+    --icon "static/img/app_icon.png" \
     --hidden-import flask_sqlalchemy \
     --hidden-import flask_login \
     --hidden-import flask_mail \

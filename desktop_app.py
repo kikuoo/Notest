@@ -54,7 +54,8 @@ if __name__ == '__main__':
         js_api=api,
         width=1280,
         height=850,
-        min_size=(1000, 700)
+        min_size=(1000, 700),
+        icon='static/img/app_icon.png'
     )
     
     webview.start(debug=is_debug)

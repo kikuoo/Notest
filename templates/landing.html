@@ -13,7 +13,10 @@
     <header class="header">
         <div class="container">
             <div class="header-content">
-                <h1 class="logo">WowNote</h1>
+                <div class="logo-container" style="display: flex; align-items: center; gap: 10px;">
+                    <img src="{{ url_for('static', filename='img/app_icon.png') }}" alt="WowNote Logo" style="width: 40px; height: 40px; border-radius: 8px;">
+                    <h1 class="logo">WowNote</h1>
+                </div>
                 <nav class="nav">
                     <button class="btn-secondary" onclick="showLoginModal()">ログイン</button>
                     <button class="btn-primary" onclick="showRegistrationModal()">無料で始める</button>

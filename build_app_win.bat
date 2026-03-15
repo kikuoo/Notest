@@ -20,6 +20,7 @@ pip install pywebview pyinstaller
 :: ここでは --windowed を使用
 echo -> パッケージを作成しています...
 pyinstaller --noconfirm --windowed --name "WowNote" ^
+    --icon "static/img/app_icon.png" ^
     --hidden-import webview.platforms.winforms ^
     desktop_app.py
 
