@@ -4,6 +4,14 @@ import os
 import sys
 import platform
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 class ApiDict:
     def open_path(self, path):
         """OS標準のアプリでファイルを開く"""
@@ -54,8 +62,7 @@ if __name__ == '__main__':
         js_api=api,
         width=1280,
         height=850,
-        min_size=(1000, 700),
-        icon='static/img/app_icon.png'
+        min_size=(1000, 700)
     )
-    
-    webview.start(debug=is_debug)
+    # アプリケーションを開始
+    webview.start(debug=is_debug, icon=resource_path('static/img/app_icon.png'))

@@ -31,7 +31,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['static/img/app_icon.png'],
+    icon=['WowNote.icns'],
 )
 coll = COLLECT(
     exe,
@@ -45,6 +45,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='WowNote.app',
-    icon='static/img/app_icon.png',
+    icon='WowNote.icns',
     bundle_identifier=None,
 )

@@ -1,5 +1,5 @@
-import os
 from pathlib import Path
+import sys
 
 class Config:
     # MySQL設定
@@ -17,8 +17,15 @@ class Config:
         'pool_pre_ping': True
     }
     
-    # アップロード設定
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+    # アップロード・ストレージ設定 (配布時はユーザホームディレクトリを使用する)
+    if getattr(sys, 'frozen', False):
+        # PyInstallerで固められている場合
+        BASE_DATA_DIR = os.path.join(os.path.expanduser('~'), 'WowNoteData')
+    else:
+        # 開発環境
+        BASE_DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    UPLOAD_FOLDER = os.path.join(BASE_DATA_DIR, 'uploads')
     MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB
     ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar'}
     
@@ -35,7 +42,7 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'support@kikuoo0915.xsrv.jp')
     
     # 外部ストレージ設定
-    STORAGE_BASE_PATH = os.environ.get('STORAGE_BASE_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage'))
+    STORAGE_BASE_PATH = os.environ.get('STORAGE_BASE_PATH', os.path.join(BASE_DATA_DIR, 'storage'))
     
     @staticmethod
     def init_app(app):
