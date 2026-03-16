@@ -12,3 +12,4 @@ python-dotenv==1.0.0
 stripe>=7.14.0
 pywebview==5.0.1
 pyinstaller==6.5.0
+requests==2.31.0

@@ -16,6 +16,20 @@ import bcrypt
 import secrets
 import stripe
 import sys
+import requests
+
+def is_desktop_app():
+    """実行環境がデスクトップアプリかどうかを判定"""
+    return getattr(sys, 'frozen', False)
+
+def proxy_auth_to_remote(endpoint, data):
+    """リモートサーバーに認証リクエストをプロキシする"""
+    try:
+        remote_url = f"{app.config['REMOTE_SERVER_URL']}{endpoint}"
+        response = requests.post(remote_url, json=data, timeout=10)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {'error': f'認証サーバーに接続できません: {str(e)}'}, 500
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
@@ -34,6 +48,9 @@ app.config.from_object(Config)
 Config.init_app(app)
 
 db = SQLAlchemy(app)
+with app.app_context():
+    db.create_all() # ローカルSQLiteテーブルの自動作成
+
 login_manager = LoginManager(app)
 login_manager.login_message = None  # ログインメッセージを表示しない
 mail = Mail(app)
@@ -132,19 +149,32 @@ def load_user(user_id):
 
 @login_manager.unauthorized_handler
 def unauthorized():
-    """未ログイン時のリダイレクト（サブフォルダ対応）"""
-    app_base_url = os.environ.get('APP_BASE_URL', '').rstrip('/')
-    return redirect(f'{app_base_url}/')
+    """未ログイン時のリダイレクト"""
+    return redirect(url_for('login'))
 
 @app.route('/')
 def landing():
-    """ランディングページ"""
+    """ランディングページ（Webブラウザ用）"""
     return render_template('landing.html')
+
+@app.route('/login')
+def login():
+    """ログインページ（デスクトップアプリ用）"""
+    return render_template('login_page.html')
+
+@app.route('/register')
+def register():
+    """新規登録ページ（デスクトップアプリ用）"""
+    return render_template('register_page.html')
 
 @app.route('/app')
 @login_required
 def index():
-    """メインアプリケーション（ログイン必須）"""
+    """メインアプリケーション（ログイン必須・デスクトップアプリ専用）"""
+    # デスクトップアプリ実行中か、デバッグモードか、凍結済みかをチェック
+    is_desktop = os.environ.get('WOWNOTE_DESKTOP') == 'true' or getattr(sys, 'frozen', False)
+    if not is_desktop and not os.getenv('DEBUG_MODE'):
+        return redirect(url_for('landing'))
     return render_template('index.html')
 
 @app.route('/privacy-policy')
@@ -1028,6 +1058,10 @@ def request_registration():
         data = request.get_json()
         email = data.get('email', '').strip().lower()
         
+        # デスクトップアプリの場合はリモートに飛ばす
+        if is_desktop_app() or os.environ.get('WOWNOTE_DESKTOP') == 'true':
+            return proxy_auth_to_remote('/api/auth/request-registration', data)
+        
         if not email:
             return jsonify({'error': 'メールアドレスを入力してください'}), 400
         
@@ -1111,6 +1145,10 @@ def register():
         data = request.get_json()
         token = data.get('token')
         password = data.get('password', '').strip()
+        
+        # デスクトップアプリの場合はリモートに飛ばす
+        if is_desktop_app() or os.environ.get('WOWNOTE_DESKTOP') == 'true':
+            return proxy_auth_to_remote('/api/auth/register', data)
         agreed_to_terms = data.get('agreedToTerms', False)
         
         # バリデーション
@@ -1274,6 +1312,24 @@ def login():
         
         if not email or not password:
             return jsonify({'error': 'メールアドレスとパスワードを入力してください'}), 400
+        
+        # デスクトップアプリの場合はリモートサーバーで認証を行う
+        if is_desktop_app():
+            remote_data, status_code = proxy_auth_to_remote('/api/auth/login', data)
+            if status_code == 200:
+                user = User.query.filter_by(email=email).first()
+                if not user:
+                    user = User(email=email, 
+                                username=email.split('@')[0],
+                                password_hash=bcrypt.hashpw(secrets.token_bytes(16), bcrypt.gensalt()).decode('utf-8'))
+                    db.session.add(user)
+                remote_user = remote_data.get('user', {})
+                user.subscription_status = remote_user.get('subscription_status', 'trialing')
+                db.session.commit()
+                login_user(user, remember=True)
+                return jsonify({'success': True, 'user': {'email': user.email}})
+            else:
+                return jsonify(remote_data), status_code
         
         # ユーザー検索
         user = User.query.filter_by(email=email).first()

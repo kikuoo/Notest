@@ -3,20 +3,26 @@ from pathlib import Path
 import sys
 
 class Config:
-    # MySQL設定
-    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
-    MYSQL_PORT = int(os.environ.get('MYSQL_PORT', 3306))
-    MYSQL_USER = os.environ.get('MYSQL_USER', 'root')
-    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', '')
-    MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE', 'notest_db')
-    
+    REMOTE_SERVER_URL = os.environ.get('REMOTE_SERVER_URL', 'https://kikuoo0915.xsrv.jp/note')
     # SQLAlchemy設定
-    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
+    if getattr(sys, 'frozen', False):
+        # デスクトップアプリ用ローカルSQLite
+        LOCAL_DB_PATH = os.path.join(os.path.expanduser('~'), 'WowNoteData', 'wownote.db')
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{LOCAL_DB_PATH}"
+    else:
+        # Webサーバー用MySQL設定 (既存)
+        MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
+        MYSQL_PORT = int(os.environ.get('MYSQL_PORT', 3306))
+        MYSQL_USER = os.environ.get('MYSQL_USER', 'root')
+        MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', '')
+        MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE', 'notest_db')
+        SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_recycle': 3600,
         'pool_pre_ping': True
-    }
+    } if not SQLALCHEMY_DATABASE_URI.startswith('sqlite') else {}
     
     # アップロード・ストレージ設定 (配布時はユーザホームディレクトリを使用する)
     if getattr(sys, 'frozen', False):

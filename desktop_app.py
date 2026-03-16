@@ -3,6 +3,8 @@ import subprocess
 import os
 import sys
 import platform
+import threading
+from app import app
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -11,6 +13,12 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+def start_backend():
+    """Flaskバックエンドを別スレッドで起動"""
+    # デスクトップ版として起動していることを環境変数で明示
+    os.environ['WOWNOTE_DESKTOP'] = 'true'
+    app.run(host='127.0.0.1', port=5001, threaded=True)
 
 class ApiDict:
     def open_path(self, path):
@@ -44,16 +52,18 @@ class ApiDict:
             return {"success": False, "error": str(e)}
 
 if __name__ == '__main__':
-    # ユーザーが配布されたときにアクセスするリモートURL
-    # 開発時は localhost:5001 でも良いが、配布時は Xserver 等のURLにする
-    remote_url = 'https://kikuoo0915.xsrv.jp/note/' 
+    # 1. バックエンドサーバーをスレッドで開始
+    t = threading.Thread(target=start_backend)
+    t.daemon = True
+    t.start()
+
+    # 2. メインウィンドウの作成
+    # ローカルのFlaskサーバーにアクセスする
+    target_url = 'http://127.0.0.1:5001/app'
     
     # デバッグモード判定
     is_debug = '--debug' in sys.argv
     
-    # 万が一開発中にローカルで見たい場合は環境変数等で切り替え
-    target_url = os.getenv('WOWNOTE_URL', remote_url)
-
     api = ApiDict()
     
     window = webview.create_window(
@@ -62,7 +72,9 @@ if __name__ == '__main__':
         js_api=api,
         width=1280,
         height=850,
-        min_size=(1000, 700)
+        min_size=(1000, 700),
+        text_select=True
     )
-    # アプリケーションを開始
-    webview.start(debug=is_debug, icon=resource_path('static/img/app_icon.png'))
+    
+    # 3. アプリケーションを開始
+    webview.start(debug=is_debug)

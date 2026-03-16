@@ -12,6 +12,14 @@
 		<data>
 		1D93/h0RUW/ofprl1Xd46yemB0U=
 		</data>
+		<key>Resources/certifi/cacert.pem</key>
+		<data>
+		R3rM9VNoTgokPV0n/BA54bYMBps=
+		</data>
+		<key>Resources/certifi/py.typed</key>
+		<data>
+		2jmj7l5rSw0yVb/vlWAYkK/YBwk=
+		</data>
 		<key>Resources/cryptography-41.0.7.dist-info/INSTALLER</key>
 		<data>
 		16AxQdXWseiLa1nvCLZoHfISxZk=
@@ -222,15 +230,23 @@
 		</data>
 		<key>Resources/templates/landing.html</key>
 		<data>
-		V0j/SKLJHn+K1O6GXy+H0XW23YE=
+		mZV64cjBtTnxlt3xSVGYaebRjiQ=
 		</data>
 		<key>Resources/templates/legal.html</key>
 		<data>
 		YYgG1id0EvBWxUljqNaP0UcqTGc=
 		</data>
+		<key>Resources/templates/login_page.html</key>
+		<data>
+		wSC4fpdE2snW+BtjPwvQ6IziyUE=
+		</data>
 		<key>Resources/templates/privacy-policy.html</key>
 		<data>
 		hd7CQZSvSVdHAz/3aiLUfJs563s=
+		</data>
+		<key>Resources/templates/register_page.html</key>
+		<data>
+		Mh65MRVeFDI1jvOht/Fm+orPULU=
 		</data>
 		<key>Resources/templates/terms-of-service.html</key>
 		<data>
@@ -371,6 +387,29 @@
 			</data>
 			<key>requirement</key>
 			<string>cdhash H"03d3e0687121d14a4b92106ded2a384220aa3ab2"</string>
+		</dict>
+		<key>Frameworks/certifi</key>
+		<dict>
+			<key>symlink</key>
+			<string>../Resources/certifi</string>
+		</dict>
+		<key>Frameworks/charset_normalizer/md.cpython-39-darwin.so</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			E8oBaPK8ODt17BADf0PovJl+t4E=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"13ca0168f2bc383b75ec10037f43e8bc997eb781"</string>
+		</dict>
+		<key>Frameworks/charset_normalizer/md__mypyc.cpython-39-darwin.so</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			Wrkgxhv7JKxkXzWFbUI2e88pfJA=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"5ab920c61bfb24ac645f35856d42367bcf297c90"</string>
 		</dict>
 		<key>Frameworks/cryptography-41.0.7.dist-info</key>
 		<dict>
@@ -1020,6 +1059,25 @@
 			<key>symlink</key>
 			<string>../Frameworks/bcrypt</string>
 		</dict>
+		<key>Resources/certifi/cacert.pem</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Tzl1/zCrvzVEO0hgZK6Ly0Hf9wf/31dsdtKS+0WKoKk=
+			</data>
+		</dict>
+		<key>Resources/certifi/py.typed</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+			</data>
+		</dict>
+		<key>Resources/charset_normalizer</key>
+		<dict>
+			<key>symlink</key>
+			<string>../Frameworks/charset_normalizer</string>
+		</dict>
 		<key>Resources/cryptography</key>
 		<dict>
 			<key>symlink</key>
@@ -1413,7 +1471,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			WoF8y2yUT1bE9un9vm/PQgR6kumHketEjUHON2cmThQ=
+			vrAsGzepYJ1OLMoIfSLGTbzp0+i52TIsQtLXi4L/jvE=
 			</data>
 		</dict>
 		<key>Resources/templates/legal.html</key>
@@ -1423,11 +1481,25 @@
 			FfauqFK+Hv5n+3COpqrLQliQHPa11TeDMQZP05jivwg=
 			</data>
 		</dict>
+		<key>Resources/templates/login_page.html</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			7C7Gcx6tOZ9ES0xNIOqlAzpghCzippbkCceBcaNuYW4=
+			</data>
+		</dict>
 		<key>Resources/templates/privacy-policy.html</key>
 		<dict>
 			<key>hash2</key>
 			<data>
 			DJi5nGQEWFQIfSvZXtczrx2GoFqh/ZkpKeHVNr6PKgg=
+			</data>
+		</dict>
+		<key>Resources/templates/register_page.html</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			BPpQduus8Ugpcs6ILsfd1kMIm7XksfLzFBOCIlVn62I=
 			</data>
 		</dict>
 		<key>Resources/templates/terms-of-service.html</key>

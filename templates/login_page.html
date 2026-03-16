@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WowNote - ログイン</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <style>
+        body { background-color: #f8f9fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .auth-container { width: 100%; max-width: 400px; padding: 20px; }
+        .auth-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .logo-center { display: flex; justify-content: center; margin-bottom: 30px; }
+        h2 { text-align: center; margin-bottom: 20px; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="logo-center">
+                <img src="{{ url_for('static', filename='img/app_icon.png') }}" alt="WowNote Logo" style="width: 60px; height: 60px; border-radius: 12px;">
+            </div>
+            <h2>ログイン</h2>
+            <form class="auth-form" onsubmit="handleLogin(event)">
+                <div id="loginError" class="auth-error" style="display: none; color: red; margin-bottom: 15px; font-size: 14px;"></div>
+                <div class="auth-form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">メールアドレス</label>
+                    <input type="email" id="loginEmail" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
+                </div>
+                <div class="auth-form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px;">パスワード</label>
+                    <input type="password" id="loginPassword" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-weight: bold; border-radius: 6px;">ログイン</button>
+            </form>
+            <div style="text-align: center; margin-top: 20px; font-size: 14px;">
+                アカウントをお持ちでない方は <a href="{{ url_for('register') }}">新規登録</a>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>

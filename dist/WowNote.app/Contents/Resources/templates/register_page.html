@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WowNote - 新規登録</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <style>
+        body { background-color: #f8f9fa; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .auth-container { width: 100%; max-width: 450px; padding: 20px; }
+        .auth-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h2 { text-align: center; margin-bottom: 20px; color: #333; }
+        .auth-step { display: none; }
+        .auth-step.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2>新規登録</h2>
+            
+            <!-- ステップ1: メール送信 -->
+            <div id="emailStep" class="auth-step active">
+                <p style="text-align: center; color: #666; margin-bottom: 20px;">メールアドレスを入力してください</p>
+                <form onsubmit="handleEmailSubmit(event)">
+                    <div id="emailError" class="auth-error" style="display: none; color: red; margin-bottom: 15px;"></div>
+                    <div class="auth-form-group" style="margin-bottom: 15px;">
+                        <input type="email" id="regEmailInput" placeholder="メールアドレス" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-weight: bold;">確認メールを送信</button>
+                </form>
+            </div>
+
+            <!-- ステップ2: 待ち -->
+            <div id="verificationStep" class="auth-step">
+                <div style="text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">📧</div>
+                    <h3>確認メールを送信しました</h3>
+                    <p id="verificationEmail" style="font-weight: bold;"></p>
+                    <p style="color: #666; font-size: 14px;">メール内のリンクをクリックして登録を完了してください。</p>
+                </div>
+            </div>
+
+            <!-- ステップ3: パスワード設定 -->
+            <div id="registrationStep" class="auth-step">
+                <form onsubmit="handleRegistration(event)">
+                    <div id="registrationError" class="auth-error" style="display: none; color: red; margin-bottom: 15px;"></div>
+                    <input type="hidden" id="regEmail">
+                    <input type="hidden" id="regToken">
+                    <div class="auth-form-group" style="margin-bottom: 15px;">
+                        <input type="password" id="regPassword" placeholder="パスワード（8文字以上）" minlength="8" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
+                    </div>
+                    <div class="auth-form-group" style="margin-bottom: 15px;">
+                        <input type="password" id="regConfirmPassword" placeholder="パスワード（確認）" minlength="8" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
+                    </div>
+                    <div style="margin-bottom: 20px; font-size: 13px;">
+                        <input type="checkbox" id="agreeTerms" required> 規約に同意する
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-weight: bold;">登録完了</button>
+                </form>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px; font-size: 14px;">
+                既にアカウントをお持ちの方は <a href="{{ url_for('login') }}">ログイン</a>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>

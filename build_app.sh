@@ -5,10 +5,13 @@ echo "------------------------------------------------"
 echo "  WowNote Desktop のパッケージ作成を開始します"
 echo "------------------------------------------------"
 
-# 1. 仮想環境のロード
+# 1. 仮想環境のロードとライブラリのインストール
 if [ -f "venv/bin/activate" ]; then
     source venv/bin/activate
 fi
+
+echo "-> 必要なライブラリをインストール中..."
+python3 -m pip install -r requirements.txt
 
 # 2. アイコンの変換 (PNG -> ICNS)
 echo "-> アイコンを変換中..."
