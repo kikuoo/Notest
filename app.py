@@ -48,9 +48,6 @@ app.config.from_object(Config)
 Config.init_app(app)
 
 db = SQLAlchemy(app)
-with app.app_context():
-    db.create_all() # ローカルSQLiteテーブルの自動作成
-
 login_manager = LoginManager(app)
 login_manager.login_message = None  # ログインメッセージを表示しない
 mail = Mail(app)
@@ -158,12 +155,12 @@ def landing():
     return render_template('landing.html')
 
 @app.route('/login')
-def login():
+def login_view():
     """ログインページ（デスクトップアプリ用）"""
     return render_template('login_page.html')
 
 @app.route('/register')
-def register():
+def register_view():
     """新規登録ページ（デスクトップアプリ用）"""
     return render_template('register_page.html')
 
@@ -1430,7 +1427,11 @@ def update_current_user():
         return jsonify({'error': '更新に失敗しました'}), 500
 
 
-if __name__ == '__main__':
+def init_db():
+    """データベースとテーブルの作成"""
     with app.app_context():
         db.create_all()
+
+if __name__ == '__main__':
+    init_db()
     app.run(debug=True, host='0.0.0.0', port=5001)

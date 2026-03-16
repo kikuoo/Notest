@@ -4,7 +4,7 @@ import os
 import sys
 import platform
 import threading
-from app import app
+from app import app, init_db
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -18,6 +18,7 @@ def start_backend():
     """Flaskバックエンドを別スレッドで起動"""
     # デスクトップ版として起動していることを環境変数で明示
     os.environ['WOWNOTE_DESKTOP'] = 'true'
+    init_db()  # モデル読み込み後のタイミングでDB初期化
     app.run(host='127.0.0.1', port=5001, threaded=True)
 
 class ApiDict:
