@@ -48,6 +48,9 @@ class Config:
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'support@kikuoo0915.xsrv.jp')
     
+    # Stripe 設定
+    STRIPE_PAYMENT_LINK = os.environ.get('STRIPE_PAYMENT_LINK', 'https://buy.stripe.com/test_eVq7sLbo4gpMfWng3R0Fi00')
+    
     # 外部ストレージ設定
     STORAGE_BASE_PATH = os.environ.get('STORAGE_BASE_PATH', os.path.join(BASE_DATA_DIR, 'storage'))
     

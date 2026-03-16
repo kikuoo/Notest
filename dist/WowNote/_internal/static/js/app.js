@@ -3373,6 +3373,15 @@ function formatFileSize(bytes) {
 }
 
 // ==================== サブスクリプション状態の確認と制御 ====================
+// 外部URLをブラウザで開く (デスクトップ版対応)
+function openExternalLink(url) {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.open_url) {
+        window.pywebview.api.open_url(url);
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
 async function loadSubscriptionStatus() {
     try {
         // user/status API は要認証なので、初期化前などに呼ばれた場合は無視される実装とする
@@ -3387,6 +3396,8 @@ async function loadSubscriptionStatus() {
             document.getElementById('modalAppLock').style.display = 'flex';
             document.getElementById('btnSubscribeNow').href = data.payment_link;
             return; // ロック状態ならこれ以上何もしない
+        } else {
+            document.getElementById('modalAppLock').style.display = 'none';
         }
 
         // 設定モーダルの表示内容を更新
@@ -3397,7 +3408,7 @@ async function loadSubscriptionStatus() {
         if (data.subscription_status === 'trialing') {
             html += `<p style="font-weight: bold; color: #f0ad4e;">無料トライアル中 (残り ${data.trial_days_left} 日)</p>`;
             html += `<p style="font-size: 13px; color: #666; margin-top: 4px;">トライアル終了日: ${new Date(data.trial_end).toLocaleDateString()}</p>`;
-            html += `<a href="${data.payment_link}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 15px; text-decoration: none;">サブスクリプションを登録する</a>`;
+            html += `<a href="${data.payment_link}" onclick="event.preventDefault(); openExternalLink(this.href);" class="btn-primary" style="display: inline-block; margin-top: 15px; text-decoration: none;">サブスクリプションを登録する</a>`;
         } else if (data.subscription_status === 'active') {
             if (data.cancel_at_period_end) {
                 html += `<p style="font-weight: bold; color: #d9534f;">サブスクリプション退会済み</p>`;
@@ -3410,7 +3421,7 @@ async function loadSubscriptionStatus() {
             }
         } else if (data.subscription_status === 'canceled' || data.subscription_status === 'expired') {
             html += `<p style="font-weight: bold; color: #d9534f;">利用期間終了</p>`;
-            html += `<a href="${data.payment_link}" target="_blank" class="btn-primary" style="display: inline-block; margin-top: 15px; text-decoration: none;">再開する</a>`;
+            html += `<a href="${data.payment_link}" onclick="event.preventDefault(); openExternalLink(this.href);" class="btn-primary" style="display: inline-block; margin-top: 15px; text-decoration: none;">再開する</a>`;
         }
 
         container.innerHTML = html;

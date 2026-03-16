@@ -52,6 +52,21 @@ class ApiDict:
             print(f"Error opening with app: {e}")
             return {"success": False, "error": str(e)}
 
+    def open_url(self, url):
+        """システム標準のブラウザでURLを開く"""
+        print(f"Opening URL: {url}")
+        try:
+            if platform.system() == 'Darwin':       # macOS
+                subprocess.call(('open', url))
+            elif platform.system() == 'Windows':    # Windows
+                os.startfile(url)
+            else:                                   # linux
+                subprocess.call(('xdg-open', url))
+            return {"success": True}
+        except Exception as e:
+            print(f"Error opening URL: {e}")
+            return {"success": False, "error": str(e)}
+
 if __name__ == '__main__':
     # 1. バックエンドサーバーをスレッドで開始
     t = threading.Thread(target=start_backend)

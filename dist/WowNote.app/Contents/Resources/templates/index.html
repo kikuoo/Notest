@@ -140,11 +140,13 @@
             <p style="margin-bottom: 15px; font-size: 15px;">30日間の無料トライアル期間、または現在のサブスクリプションの有効期限が終了しました。</p>
             <p style="margin-bottom: 25px; font-size: 15px;">引き続きWowNoteをご利用いただくには、以下のボタンより決済（サブスクリプション登録）をお願いいたします。</p>
             <div class="modal-actions" style="justify-content: center;">
-                <a id="btnSubscribeNow" href="#" class="btn-primary"
+                <a id="btnSubscribeNow" href="#" class="btn-primary" 
+                    onclick="event.preventDefault(); openExternalLink(this.href);"
                     style="text-decoration: none; padding: 12px 24px; font-size: 16px;">サブスクリプション登録へ進む</a>
             </div>
-            <div style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">
-                <button class="btn-secondary" onclick="handleLogout()" style="width: 100%;">ログアウト</button>
+            <div style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; display: flex; gap: 10px;">
+                <button class="btn-primary" onclick="loadSubscriptionStatus()" style="flex: 1; padding: 10px;">🔄 状態を更新（決済後）</button>
+                <button class="btn-secondary" onclick="handleLogout()" style="flex: 1; padding: 10px;">ログアウト</button>
             </div>
         </div>
     </div>

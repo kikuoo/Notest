@@ -4,7 +4,7 @@ import os
 # 環境変数の読み込み (Configのインポート前に実行する必要があります)
 load_dotenv()
 
-from flask import Flask, render_template, request, jsonify, send_file, redirect
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
@@ -18,16 +18,40 @@ import stripe
 import sys
 import requests
 
+class PrefixMiddleware(object):
+    def __init__(self, app, prefix=''):
+        self.app = app
+        self.prefix = prefix
+
+    def __call__(self, environ, start_response):
+        if environ['PATH_INFO'].startswith(self.prefix):
+            environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
+            environ['SCRIPT_NAME'] = self.prefix
+            return self.app(environ, start_response)
+        else:
+            return self.app(environ, start_response)
+
 def is_desktop_app():
     """実行環境がデスクトップアプリかどうかを判定"""
-    return getattr(sys, 'frozen', False)
+    return getattr(sys, 'frozen', False) or os.environ.get('WOWNOTE_DESKTOP') == 'true'
 
-def proxy_auth_to_remote(endpoint, data):
+def proxy_auth_to_remote(endpoint, data, params=None):
     """リモートサーバーに認証リクエストをプロキシする"""
     try:
         remote_url = f"{app.config['REMOTE_SERVER_URL']}{endpoint}"
-        response = requests.post(remote_url, json=data, timeout=10)
-        return response.json(), response.status_code
+        headers = {'X-Internal-Auth': app.config['SECRET_KEY']}
+        # status確認などのGETリクエストにも対応
+        if not data and endpoint.endswith('status'):
+            response = requests.get(remote_url, params=params, headers=headers, timeout=15)
+        else:
+            response = requests.post(remote_url, json=data, headers=headers, timeout=15)
+        
+        # JSONとして解析を試みる
+        try:
+            return response.json(), response.status_code
+        except Exception:
+            # 解析失敗時はステータスコードを添えてエラーを返す
+            return {'error': f'認証サーバーが不正なレスポンスを返しました (Status: {response.status_code})'}, 500
     except Exception as e:
         return {'error': f'認証サーバーに接続できません: {str(e)}'}, 500
 def resource_path(relative_path):
@@ -45,6 +69,7 @@ app = Flask(__name__,
             template_folder=resource_path('templates'),
             static_folder=resource_path('static'))
 app.config.from_object(Config)
+app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix='/note')
 Config.init_app(app)
 
 db = SQLAlchemy(app)
@@ -107,6 +132,7 @@ class User(db.Model):
     trial_end = db.Column(db.DateTime, nullable=True)
     current_period_end = db.Column(db.DateTime, nullable=True)
     cancel_at_period_end = db.Column(db.Boolean, default=False)
+    remote_user_id = db.Column(db.Integer, nullable=True) # リモートサーバー側のユーザーID
     
     # Flask-Loginに必要なメソッド
     @property
@@ -147,7 +173,7 @@ def load_user(user_id):
 @login_manager.unauthorized_handler
 def unauthorized():
     """未ログイン時のリダイレクト"""
-    return redirect(url_for('login'))
+    return redirect(url_for('login_view'))
 
 @app.route('/')
 def landing():
@@ -1207,17 +1233,58 @@ def register():
 # ==================== Stripe & サブスクリプション API ====================
 
 @app.route('/api/user/status', methods=['GET'])
-@login_required
 def user_status():
-    user = current_user
+    # 内部プロキシ用：SECRET_KEYによるメールアドレス指定での取得
+    internal_auth = request.headers.get('X-Internal-Auth')
+    req_email = request.args.get('email')
     
-    # トライアルの残り日数を計算
+    if internal_auth == app.config['SECRET_KEY'] and req_email:
+        user = User.query.filter_by(email=req_email).first()
+    elif current_user.is_authenticated:
+        user = current_user
+    else:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # デスクトップアプリの場合はリモートサーバーから最新状態を取得する
+    if is_desktop_app():
+        try:
+            # プロキシ経由でリモートのステータスを取得 (Emailで指定)
+            remote_data, status_code = proxy_auth_to_remote('/api/user/status', None, params={'email': user.email})
+            if status_code == 200:
+                # ローカルDBを更新
+                user.subscription_status = remote_data.get('subscription_status', user.subscription_status)
+                if remote_data.get('trial_end'):
+                    user.trial_end = datetime.fromisoformat(remote_data.get('trial_end'))
+                if remote_data.get('current_period_end'):
+                    user.current_period_end = datetime.fromisoformat(remote_data.get('current_period_end'))
+                user.cancel_at_period_end = remote_data.get('cancel_at_period_end', user.cancel_at_period_end)
+                db.session.commit()
+                
+                # リモートの payment_link にリモートのIDを付与して返す
+                payment_link = remote_data.get('payment_link', '')
+                if not payment_link:
+                    payment_link = app.config.get('STRIPE_PAYMENT_LINK', '')
+
+                if payment_link and user.remote_user_id:
+                    # IDが既に付いている可能性もあるのでクエリパラメータを調整
+                    if '?' in payment_link:
+                        payment_link += f"&client_reference_id={user.remote_user_id}"
+                    else:
+                        payment_link += f"?client_reference_id={user.remote_user_id}"
+                remote_data['payment_link'] = payment_link
+                return jsonify(remote_data)
+        except Exception as e:
+            print(f"Proxy status error: {e}")
+
+    # 以下、Web版またはプロキシ失敗時のフォールバック
     now = datetime.utcnow()
     trial_days_left = 0
     if user.trial_end and user.trial_end > now:
         trial_days_left = (user.trial_end - now).days
     
-    # ロック状態かどうかの判定 (トライアル終了 ＆ activeではない)
     is_locked = False
     if user.subscription_status != 'active':
         if not user.trial_end or user.trial_end < now:
@@ -1230,7 +1297,7 @@ def user_status():
         'current_period_end': user.current_period_end.isoformat() if user.current_period_end else None,
         'cancel_at_period_end': user.cancel_at_period_end,
         'is_locked': is_locked,
-        'payment_link': os.getenv('STRIPE_PAYMENT_LINK', '') + f'?client_reference_id={user.id}'
+        'payment_link': app.config.get('STRIPE_PAYMENT_LINK', '') + (f'?client_reference_id={user.remote_user_id or user.id}' if '?' not in app.config.get('STRIPE_PAYMENT_LINK', '') else f'&client_reference_id={user.remote_user_id or user.id}')
     })
 
 @app.route('/api/user/cancel-subscription', methods=['POST'])
@@ -1320,9 +1387,17 @@ def login():
                                 username=email.split('@')[0],
                                 password_hash=bcrypt.hashpw(secrets.token_bytes(16), bcrypt.gensalt()).decode('utf-8'))
                     db.session.add(user)
+                # サブスクリプション状態やリモートIDを同期
                 remote_user = remote_data.get('user', {})
+                user.remote_user_id = remote_user.get('id')
                 user.subscription_status = remote_user.get('subscription_status', 'trialing')
+                if remote_user.get('trial_end'):
+                    user.trial_end = datetime.fromisoformat(remote_user.get('trial_end'))
+                if remote_user.get('current_period_end'):
+                    user.current_period_end = datetime.fromisoformat(remote_user.get('current_period_end'))
+                user.cancel_at_period_end = remote_user.get('cancel_at_period_end', False)
                 db.session.commit()
+                
                 login_user(user, remember=True)
                 return jsonify({'success': True, 'user': {'email': user.email}})
             else:
@@ -1349,7 +1424,11 @@ def login():
             'user': {
                 'id': user.id,
                 'email': user.email,
-                'username': user.username
+                'username': user.username,
+                'subscription_status': user.subscription_status,
+                'trial_end': user.trial_end.isoformat() if user.trial_end else None,
+                'current_period_end': user.current_period_end.isoformat() if user.current_period_end else None,
+                'cancel_at_period_end': user.cancel_at_period_end
             }
         }), 200
         
