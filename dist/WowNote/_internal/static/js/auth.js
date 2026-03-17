@@ -237,12 +237,12 @@ async function handleLogout() {
             }
         });
 
-        // ログアウト成功またはエラーに関わらず、ランディングページにリダイレクト
-        window.location.href = '/note/';
+        // ログアウト成功またはエラーに関わらず、ログインページにリダイレクト
+        window.location.href = '/note/login';
     } catch (error) {
         console.error('Logout error:', error);
-        // エラーが発生してもランディングページにリダイレクト
-        window.location.href = '/note/';
+        // エラーが発生してもログインページにリダイレクト
+        window.location.href = '/note/login';
     }
 }
 

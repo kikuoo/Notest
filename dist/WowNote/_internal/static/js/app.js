@@ -3382,6 +3382,9 @@ function openExternalLink(url) {
     }
 }
 
+// サブスクリプション状態のポーリング設定
+let subscriptionPollingTimer = null;
+
 async function loadSubscriptionStatus() {
     try {
         // user/status API は要認証なので、初期化前などに呼ばれた場合は無視される実装とする
@@ -3395,9 +3398,23 @@ async function loadSubscriptionStatus() {
         if (data.is_locked) {
             document.getElementById('modalAppLock').style.display = 'flex';
             document.getElementById('btnSubscribeNow').href = data.payment_link;
+            
+            // ロック中かつタイマーが動いていなければポーリング開始 (10秒ごと)
+            if (!subscriptionPollingTimer) {
+                console.log("Subscription is locked. Starting auto-polling...");
+                subscriptionPollingTimer = setInterval(() => {
+                    loadSubscriptionStatus();
+                }, 10000);
+            }
             return; // ロック状態ならこれ以上何もしない
         } else {
             document.getElementById('modalAppLock').style.display = 'none';
+            // ロック解除されたらタイマー停止
+            if (subscriptionPollingTimer) {
+                console.log("Subscription unlocked! Stopping auto-polling.");
+                clearInterval(subscriptionPollingTimer);
+                subscriptionPollingTimer = null;
+            }
         }
 
         // 設定モーダルの表示内容を更新
