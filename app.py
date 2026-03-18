@@ -1519,7 +1519,9 @@ def forgot_password():
         return jsonify({'message': 'ご入力いただいたアドレス宛に再設定用リンクを送信しました'}), 200
         
     except Exception as e:
-        print(f"Forgot password error: {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"Forgot password error: {str(e)}")
         return jsonify({'error': '処理に失敗しました'}), 500
 
 @app.route('/api/auth/reset-password', methods=['POST'])
@@ -1631,6 +1633,8 @@ def init_db():
     with app.app_context():
         db.create_all()
 
+# 初回起動時やインポート時にテーブル作成を確実に行う
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True, host='0.0.0.0', port=5001)
