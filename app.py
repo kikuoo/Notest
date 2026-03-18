@@ -1501,7 +1501,7 @@ def forgot_password():
         db.session.commit()
         
         # メール送信
-        reset_link = f"{request.host_url.rstrip('/')}/reset-password?token={token}"
+        reset_link = url_for('reset_password_view', token=token, _external=True)
         msg = Message("【WowNote】パスワードの再設定",
                     recipients=[email])
         msg.body = f"""WowNoteをご利用いただきありがとうございます。
