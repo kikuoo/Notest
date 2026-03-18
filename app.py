@@ -38,8 +38,10 @@ def is_desktop_app():
 def proxy_auth_to_remote(endpoint, data, params=None):
     """リモートサーバーに認証リクエストをプロキシする"""
     try:
-        remote_url = f"{app.config['REMOTE_SERVER_URL']}{endpoint}"
+        remote_base = app.config['REMOTE_SERVER_URL'].rstrip('/')
+        remote_url = f"{remote_base}{endpoint}"
         headers = {'X-Internal-Auth': app.config['SECRET_KEY']}
+        
         # status確認などのGETリクエストにも対応
         if not data and endpoint.endswith('status'):
             response = requests.get(remote_url, params=params, headers=headers, timeout=15)
@@ -51,7 +53,9 @@ def proxy_auth_to_remote(endpoint, data, params=None):
             return response.json(), response.status_code
         except Exception:
             # 解析失敗時はステータスコードを添えてエラーを返す
-            return {'error': f'認証サーバーが不正なレスポンスを返しました (Status: {response.status_code})'}, 500
+            error_msg = f'認証サーバーが不正なレスポンスを返しました (Status: {response.status_code})'
+            print(f"Proxy Error: {error_msg} URL: {remote_url}")
+            return {'error': error_msg}, response.status_code if response.status_code != 200 else 500
     except Exception as e:
         return {'error': f'認証サーバーに接続できません: {str(e)}'}, 500
 def resource_path(relative_path):

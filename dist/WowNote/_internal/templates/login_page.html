@@ -35,6 +35,9 @@
                     <label for="loginRemember" style="font-size: 14px; color: #555; cursor: pointer;">ログイン情報を保持する</label>
                 </div>
                 <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-weight: bold; border-radius: 6px;">ログイン</button>
+                <div style="text-align: right; margin-top: 10px;">
+                    <a href="{{ url_for('forgot_password_view') }}" style="font-size: 13px; color: #666; text-decoration: none;">パスワードを忘れた方はこちら</a>
+                </div>
             </form>
             <div style="text-align: center; margin-top: 20px; font-size: 14px;">
                 アカウントをお持ちでない方は <a href="{{ url_for('register_view') }}">新規登録</a>

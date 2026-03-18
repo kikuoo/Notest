@@ -206,7 +206,7 @@
 		</data>
 		<key>Resources/static/js/auth.js</key>
 		<data>
-		W8h/XMWRLu9rlYAIXE05xwsVwfw=
+		sDwIUY1+QxbUMZFEQcSgPDs93xk=
 		</data>
 		<key>Resources/static/js/file-preview.js</key>
 		<data>
@@ -224,6 +224,10 @@
 		<data>
 		goXivzsIZzHdID7rsn4OQ+yx1To=
 		</data>
+		<key>Resources/templates/forgot_password.html</key>
+		<data>
+		cCITo7o2Rc44LZHReoE+h5YJp/I=
+		</data>
 		<key>Resources/templates/index.html</key>
 		<data>
 		BcGY7VPH6kmPqQOAMry/ox8yL28=
@@ -238,7 +242,7 @@
 		</data>
 		<key>Resources/templates/login_page.html</key>
 		<data>
-		+qNztfElgimczixn+aOAB72Fd1g=
+		sguuSoC6BKPQ4TChjRZsKCnWiFE=
 		</data>
 		<key>Resources/templates/privacy-policy.html</key>
 		<data>
@@ -247,6 +251,10 @@
 		<key>Resources/templates/register_page.html</key>
 		<data>
 		O6aAz3s69x/S2uUr/mE6dzFSoOU=
+		</data>
+		<key>Resources/templates/reset_password.html</key>
+		<data>
+		gNWoN6v1j7aCvpt4xzWjPhN8OTE=
 		</data>
 		<key>Resources/templates/terms-of-service.html</key>
 		<data>
@@ -1429,7 +1437,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			7MaZDiSOlOR6yifE7vhRB1kHTxJ/BbcXRih8XSXBGyc=
+			o0nALUP1/tXypcdnRY9rjWyPYY1P7m3ZLZpIxlZ0EHY=
 			</data>
 		</dict>
 		<key>Resources/static/js/file-preview.js</key>
@@ -1460,6 +1468,13 @@
 			3gTDdWNGp4YvBYDUB8X+Rzr5L44vXaDvAd/JC/Qvsnc=
 			</data>
 		</dict>
+		<key>Resources/templates/forgot_password.html</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			2J01q/BTmI/vKtNNgubOwEAmjJ9JXzpCWt8uymVkMTw=
+			</data>
+		</dict>
 		<key>Resources/templates/index.html</key>
 		<dict>
 			<key>hash2</key>
@@ -1485,7 +1500,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			PR89CjQ64mJiD+Isug7QxbuKILqZwmfH2KWvdcB6kcs=
+			AePrseFVbg3Ac/OMdz4eOhHObEH2KvUeAsDiO1dhS0s=
 			</data>
 		</dict>
 		<key>Resources/templates/privacy-policy.html</key>
@@ -1500,6 +1515,13 @@
 			<key>hash2</key>
 			<data>
 			WisoFIIghhjHEsz/qM2Znm4jSw4S1N3QTrud61NTI/w=
+			</data>
+		</dict>
+		<key>Resources/templates/reset_password.html</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			7DJ3XTnZPQ5gvuVMRjcuGyCBWw/oUQpUi4DeP8DBFRY=
 			</data>
 		</dict>
 		<key>Resources/templates/terms-of-service.html</key>

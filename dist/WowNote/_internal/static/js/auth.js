@@ -223,6 +223,98 @@ async function handleRegistration(event) {
     }
 }
 
+// パスワード再設定メール送信リクエスト
+async function handleForgotPassword(event) {
+    event.preventDefault();
+    const email = document.getElementById('forgotEmail').value;
+    const errorEl = document.getElementById('forgotError');
+    const successEl = document.getElementById('forgotSuccess');
+    const submitBtn = document.getElementById('forgotSubmit');
+    const form = document.getElementById('forgotForm');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '送信中...';
+    errorEl.style.display = 'none';
+
+    try {
+        const response = await fetch('/note/api/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            form.style.display = 'none';
+            successEl.textContent = data.message;
+            successEl.style.display = 'block';
+        } else {
+            errorEl.textContent = data.error || '送信に失敗しました';
+            errorEl.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = '再設定メールを送信';
+        }
+    } catch (error) {
+        errorEl.textContent = '通信エラーが発生しました';
+        errorEl.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = '再設定メールを送信';
+    }
+}
+
+// パスワード再設定実行
+async function handleResetPassword(event) {
+    event.preventDefault();
+    const token = document.getElementById('resetToken').value;
+    const password = document.getElementById('resetPassword').value;
+    const confirm = document.getElementById('resetPasswordConfirm').value;
+    const errorEl = document.getElementById('resetError');
+    const successEl = document.getElementById('resetSuccess');
+    const submitBtn = document.getElementById('resetSubmit');
+    const form = document.getElementById('resetForm');
+    const loginLink = document.getElementById('loginLinkContainer');
+    const cancelLink = document.getElementById('cancelLink');
+
+    if (password !== confirm) {
+        errorEl.textContent = 'パスワードが一致しません';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '変更中...';
+    errorEl.style.display = 'none';
+
+    try {
+        const response = await fetch('/note/api/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            form.style.display = 'none';
+            cancelLink.style.display = 'none';
+            successEl.textContent = data.message;
+            successEl.style.display = 'block';
+            loginLink.style.display = 'block';
+        } else {
+            errorEl.textContent = data.error || '再設定に失敗しました';
+            errorEl.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'パスワードを変更する';
+        }
+    } catch (error) {
+        errorEl.textContent = '通信エラーが発生しました';
+        errorEl.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'パスワードを変更する';
+    }
+}
+
 // ログアウト
 async function handleLogout() {
     // 確認ダイアログを表示
