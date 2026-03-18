@@ -1649,9 +1649,35 @@ def update_current_user():
 
 
 def init_db():
-    """データベースとテーブルの作成"""
+    """データベースとテーブルの作成および不随するマイグレーション"""
     with app.app_context():
         db.create_all()
+        
+        # MySQL等の既存テーブルへのカラム追加 (開発の進展に伴う追記)
+        if not app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+            try:
+                from sqlalchemy import text
+                # remote_user_id の追加を確認
+                db.session.execute(text("ALTER TABLE users ADD COLUMN remote_user_id INTEGER NULL"))
+                db.session.commit()
+                print("Added column remote_user_id to users table.")
+            except Exception:
+                db.session.rollback()
+                # 既に存在する場合などはエラーになるので無視
+
+            try:
+                # 他のサブスク関連カラムも念のため追加を試みる
+                from sqlalchemy import text
+                db.session.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) NULL"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255) NULL"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN subscription_status VARCHAR(50) DEFAULT 'trialing'"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN trial_end DATETIME NULL"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN current_period_end DATETIME NULL"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN cancel_at_period_end BOOLEAN DEFAULT FALSE"))
+                db.session.commit()
+                print("Sync subscription columns for legacy database.")
+            except Exception:
+                db.session.rollback()
 
 # 初回起動時やインポート時にテーブル作成を確実に行う
 init_db()
