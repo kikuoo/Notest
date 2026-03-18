@@ -1520,9 +1520,29 @@ def forgot_password():
         
     except Exception as e:
         import traceback
+        error_type = type(e).__name__
+        error_msg = str(e)
         traceback.print_exc()
-        print(f"Forgot password error: {str(e)}")
-        return jsonify({'error': '処理に失敗しました'}), 500
+        print(f"Forgot password error [{error_type}]: {error_msg}")
+        return jsonify({'error': f'処理に失敗しました ({error_type}: {error_msg})'}), 500
+
+@app.route('/api/auth/test-mail', methods=['GET'])
+def test_mail():
+    """メール設定テスト用エンドポイント"""
+    try:
+        email = request.args.get('email')
+        if not email:
+            return jsonify({'error': 'emailパラメータが必要です'}), 400
+            
+        msg = Message("【WowNote】メール設定テスト",
+                    recipients=[email])
+        msg.body = "これはWowNoteのメール送付テストです。このメールが届いた場合、サーバーのメール設定は正常です。"
+        mail.send(msg)
+        return jsonify({'message': f'{email} 宛にテストメールを送信しました。'}), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'メール送信に失敗しました: {str(e)}'}), 500
 
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
