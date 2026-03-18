@@ -62,13 +62,14 @@ async function handleLogin(event) {
 
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
+    const remember = document.getElementById('loginRemember') ? document.getElementById('loginRemember').checked : false;
     const errorEl = document.getElementById('loginError');
 
     try {
         const response = await fetch('/note/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password, remember })
         });
 
         const data = await response.json();

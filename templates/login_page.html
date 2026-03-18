@@ -30,7 +30,14 @@
                     <label style="display: block; margin-bottom: 5px;">パスワード</label>
                     <input type="password" id="loginPassword" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
                 </div>
+                <div class="auth-form-group" style="margin-bottom: 20px; display: flex; align-items: center;">
+                    <input type="checkbox" id="loginRemember" style="margin-right: 10px; width: 18px; height: 18px;">
+                    <label for="loginRemember" style="font-size: 14px; color: #555; cursor: pointer;">ログイン情報を保持する</label>
+                </div>
                 <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-weight: bold; border-radius: 6px;">ログイン</button>
+                <div style="text-align: right; margin-top: 10px;">
+                    <a href="{{ url_for('forgot_password_view') }}" style="font-size: 13px; color: #666; text-decoration: none;">パスワードを忘れた方はこちら</a>
+                </div>
             </form>
             <div style="text-align: center; margin-top: 20px; font-size: 14px;">
                 アカウントをお持ちでない方は <a href="{{ url_for('register_view') }}">新規登録</a>

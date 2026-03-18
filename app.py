@@ -165,6 +165,15 @@ class StorageLocation(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class PasswordResetToken(db.Model):
+    __tablename__ = 'password_reset_tokens'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False, index=True)
+    token = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # Flask-Loginのユーザーローダー
 @login_manager.user_loader
 def load_user(user_id):
@@ -207,6 +216,19 @@ def privacy_policy():
 @app.route('/terms-of-service')
 def terms_of_service():
     return render_template('terms-of-service.html')
+
+@app.route('/forgot-password')
+def forgot_password_view():
+    """パスワード再設定リクエストページ"""
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password')
+def reset_password_view():
+    """パスワード再設定ページ"""
+    token = request.args.get('token')
+    if not token:
+        return redirect(url_for('login_view'))
+    return render_template('reset_password.html', token=token)
 
 @app.route('/legal')
 def legal():
@@ -1377,6 +1399,8 @@ def login():
         if not email or not password:
             return jsonify({'error': 'メールアドレスとパスワードを入力してください'}), 400
         
+        remember = data.get('remember', False)
+        
         # デスクトップアプリの場合はリモートサーバーで認証を行う
         if is_desktop_app():
             remote_data, status_code = proxy_auth_to_remote('/api/auth/login', data)
@@ -1398,7 +1422,7 @@ def login():
                 user.cancel_at_period_end = remote_user.get('cancel_at_period_end', False)
                 db.session.commit()
                 
-                login_user(user, remember=True)
+                login_user(user, remember=remember)
                 return jsonify({'success': True, 'user': {'email': user.email}})
             else:
                 return jsonify(remote_data), status_code
@@ -1417,7 +1441,7 @@ def login():
             return jsonify({'error': 'このアカウントは無効化されています'}), 403
         
         # ログイン
-        login_user(user)
+        login_user(user, remember=remember)
         
         return jsonify({
             'message': 'ログインしました',
@@ -1435,6 +1459,98 @@ def login():
     except Exception as e:
         print(f"Login error: {e}")
         return jsonify({'error': 'ログインに失敗しました'}), 500
+
+# 4.5 パスワードリセット
+@app.route('/api/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    """パスワード再設定メール送信"""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        
+        # デスクトップアプリの場合はリモートに飛ばす
+        if is_desktop_app():
+            return proxy_auth_to_remote('/api/auth/forgot-password', data)
+            
+        if not email:
+            return jsonify({'error': 'メールアドレスを入力してください'}), 400
+            
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # セキュリティのため、ユーザーが存在しなくても成功を装う
+            return jsonify({'message': 'ご入力いただいたアドレス宛に再設定用リンクを送信しました（登録がある場合のみ）'}), 200
+
+        # トークン生成
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        
+        # 既存の未使用トークンを削除
+        PasswordResetToken.query.filter_by(email=email, used=False).delete()
+        
+        # 新しいトークンを保存
+        reset_token = PasswordResetToken(
+            email=email,
+            token=token,
+            expires_at=expires_at
+        )
+        db.session.add(reset_token)
+        db.session.commit()
+        
+        # メール送信
+        reset_link = f"{request.host_url.rstrip('/')}/reset-password?token={token}"
+        msg = Message("【WowNote】パスワードの再設定",
+                    recipients=[email])
+        msg.body = f"""WowNoteをご利用いただきありがとうございます。
+
+パスワードの再設定リクエストを受け付けました。
+以下のリンクから新しいパスワードを設定してください。
+このリンクの有効期限は1時間です。
+
+{reset_link}
+
+※このメールに心当たりがない場合は、破棄してください。
+"""
+        mail.send(msg)
+        
+        return jsonify({'message': 'ご入力いただいたアドレス宛に再設定用リンクを送信しました'}), 200
+        
+    except Exception as e:
+        print(f"Forgot password error: {e}")
+        return jsonify({'error': '処理に失敗しました'}), 500
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def reset_password():
+    """パスワード再設定実行"""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        new_password = data.get('password')
+        
+        # デスクトップアプリの場合はリモートに飛ばす
+        if is_desktop_app():
+            return proxy_auth_to_remote('/api/auth/reset-password', data)
+            
+        if not token or not new_password:
+            return jsonify({'error': '不正なリクエストです'}), 400
+            
+        reset_token = PasswordResetToken.query.filter_by(token=token, used=False).first()
+        if not reset_token or reset_token.expires_at < datetime.utcnow():
+            return jsonify({'error': '期限切れまたは無効なリンクです'}), 400
+            
+        user = User.query.filter_by(email=reset_token.email).first()
+        if not user:
+            return jsonify({'error': 'ユーザーが見つかりません'}), 404
+            
+        # パスワード更新
+        user.password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        reset_token.used = True
+        db.session.commit()
+        
+        return jsonify({'message': 'パスワードを再設定しました'}), 200
+        
+    except Exception as e:
+        print(f"Reset password error: {e}")
+        return jsonify({'error': '再設定に失敗しました'}), 500
 
 # 5. ログアウト
 @app.route('/api/auth/logout', methods=['POST'])
