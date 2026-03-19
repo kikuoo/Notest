@@ -1320,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v3.4-clean-ui [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = `v3.5-debug [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
     }
 
     renderWorkspaceButtons();
@@ -1375,6 +1375,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupHistoryTrap();
 
     window.debugLog('App initialization completed.');
+    
+    // DBスキーマの確認 (デバッグ用)
+    try {
+        const schema = await apiCall('/api/system/check-db-schema', { showAlert: false });
+        console.log('--- DATABASE SCHEMA CHECK ---');
+        console.log('DB Type:', schema.db_type);
+        console.log('Sections Columns:', schema.sections.map(c => c.name).join(', '));
+        console.log('Users Columns:', schema.users.map(c => c.name).join(', '));
+        
+        // 必須カラムのチェック
+        const required = ['memo', 'width', 'height', 'position_x', 'position_y'];
+        const missing = required.filter(r => !schema.sections.find(c => c.name === r));
+        if (missing.length > 0) {
+            window.debugLog(`CRITICAL SCHEMA ERROR: Missing columns ${missing.join(', ')}`, true);
+            alert(`データベースの更新が必要なようです。不足カラム: ${missing.join(', ')}\nアプリを再起動するか開発者に連絡してください。`);
+        }
+    } catch (e) {
+        console.warn('Schema check failed (might be legacy backend):', e);
+    }
+
     window.debugLog('SUCCESS: Initialization finished with no fatal errors.');
     } catch (e) {
         console.error('CRITICAL: Initialization failed!', e);

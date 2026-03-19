@@ -1661,9 +1661,14 @@ def init_db():
                 from sqlalchemy import text
                 db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
                 db.session.commit()
-                print(f"[INIT_DB] Added column '{column}' to '{table}' table.")
-            except Exception:
+                print(f"[INIT_DB] OK: Added '{column}' to '{table}'.")
+            except Exception as e:
                 db.session.rollback()
+                # 既に存在する場合はエラーになるが、その他のエラーも把握したい
+                if "duplicate column name" in str(e).lower() or "already exists" in str(e).lower():
+                    pass # すでに存在する
+                else:
+                    print(f"[INIT_DB] ERROR adding '{column}' to '{table}': {str(e)}")
 
         print("[INIT_DB] Running schema migrations...")
         # User テーブル
@@ -1685,6 +1690,25 @@ def init_db():
 
 # 初回起動時やインポート時にテーブル作成を確実に行う
 init_db()
+
+@app.route('/api/system/check-db-schema', methods=['GET'])
+def check_db_schema():
+    """DBスキーマの確認用デバッグAPI"""
+    try:
+        from sqlalchemy import text
+        # SQLiteのテーブル情報を取得
+        if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+            sections_cols = db.session.execute(text("PRAGMA table_info(sections)")).fetchall()
+            users_cols = db.session.execute(text("PRAGMA table_info(users)")).fetchall()
+            return jsonify({
+                'sections': [dict(c) if hasattr(c, '_asdict') else {'name': c[1], 'type': c[2]} for c in sections_cols],
+                'users': [dict(c) if hasattr(c, '_asdict') else {'name': c[1], 'type': c[2]} for c in users_cols],
+                'db_type': 'sqlite'
+            })
+        else:
+            return jsonify({'message': 'MySQL schema check not implemented via PRAGMA', 'db_type': 'mysql'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
