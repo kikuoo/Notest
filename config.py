@@ -5,7 +5,7 @@ import sys
 class Config:
     REMOTE_SERVER_URL = os.environ.get('REMOTE_SERVER_URL', 'https://kikuoo0915.xsrv.jp/note')
     # SQLAlchemy設定
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, 'frozen', False) or os.environ.get('WOWNOTE_DESKTOP') == 'true':
         # デスクトップアプリ用ローカルSQLite
         LOCAL_DB_PATH = os.path.join(os.path.expanduser('~'), 'WowNoteData', 'wownote.db')
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{LOCAL_DB_PATH}"
@@ -25,11 +25,11 @@ class Config:
     } if not SQLALCHEMY_DATABASE_URI.startswith('sqlite') else {}
     
     # アップロード・ストレージ設定 (配布時はユーザホームディレクトリを使用する)
-    if getattr(sys, 'frozen', False):
-        # PyInstallerで固められている場合
+    if getattr(sys, 'frozen', False) or os.environ.get('WOWNOTE_DESKTOP') == 'true':
+        # デスクトップ版
         BASE_DATA_DIR = os.path.join(os.path.expanduser('~'), 'WowNoteData')
     else:
-        # 開発環境
+        # 開発環境 (Webサーバー)
         BASE_DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 
     UPLOAD_FOLDER = os.path.join(BASE_DATA_DIR, 'uploads')
@@ -39,6 +39,7 @@ class Config:
     # セッション・クッキー設定
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     PERMANENT_SESSION_LIFETIME = 30 * 24 * 60 * 60  # 30日間有効
+    REMEMBER_COOKIE_DURATION = 30 * 24 * 60 * 60    # ログイン保持期間も30日間
     SESSION_COOKIE_PATH = '/'  # /note プレフィックスに関わらず共通のクッキーを使用
     SESSION_PERMANENT = True
     

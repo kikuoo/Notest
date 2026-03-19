@@ -1,9 +1,9 @@
 // --- LOGGING SYSTEM ---
 window.debugLog = function(msg, isError = false) {
     if (isError) {
-        console.error('WowNote [v3.4-clean-ui]:', msg);
+        console.error('WowNote [v3.5-clean-ui]:', msg);
     } else {
-        console.log('WowNote [v3.4-clean-ui]:', msg);
+        console.log('WowNote [v3.5-clean-ui]:', msg);
     }
 };
 
@@ -86,7 +86,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v3.4-clean-ui');
+window.debugLog('DEBUG: app.js loaded v3.5-clean-ui');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -251,9 +251,10 @@ window.apiCall = async function(url, options = {}) {
         window.debugLog(`API Success (${url})`);
         return data;
     } catch (error) {
+        console.error(`[API_CALL_ERROR] ${url}:`, error);
         window.debugLog(`API Failed (${url}): ${error.message}`, true);
         if (showAlert) {
-            alert('エラーが発生しました: ' + error.message);
+            alert('通信エラーが発生しました: ' + error.message + '\nURL: ' + url);
         }
         throw error;
     }
@@ -558,15 +559,20 @@ async function selectTab(tabId, preferredPageId = null) {
 
     if (pages.length > 0) {
         // preferredPageIdが指定されていて、そのページが存在する場合はそれを選択
-        if (preferredPageId && pages.find(p => p.id === preferredPageId)) {
-            selectPage(preferredPageId);
-        } else {
-            // それ以外は最初のページを選択
-            selectPage(pages[0].id);
+        let pageToSelect = pages[0].id;
+        if (preferredPageId) {
+            const found = pages.find(p => p.id === preferredPageId);
+            if (found) {
+                pageToSelect = found.id;
+            } else {
+                window.debugLog(`Preferred page ID ${preferredPageId} not found in tab ${tabId}. Defaulting to first page.`);
+            }
         }
+        await selectPage(pageToSelect);
     } else {
         currentPageId = null;
         localStorage.removeItem('currentPageId');
+        localStorage.removeItem(`notest_current_page_id_ws${currentWorkspace}`);
         renderPageContent();
     }
 }
@@ -1299,7 +1305,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v3.4-clean-ui)');
+        window.debugLog('App initialization started... (v3.5-clean-ui)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1314,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = 'v3.4-clean-ui [WS: <span id="current-ws-display">' + currentWorkspace + '</span>]';
+        debugInfo.innerHTML = `v3.5-clean-ui [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
     }
 
     renderWorkspaceButtons();
@@ -1369,6 +1375,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupHistoryTrap();
 
     window.debugLog('App initialization completed.');
+    
+    // DBスキーマの確認 (デバッグ用)
+    try {
+        const schema = await apiCall('/api/system/check-db-schema', { showAlert: false });
+        console.log('--- DATABASE SCHEMA CHECK ---');
+        console.log('DB Type:', schema.db_type);
+        console.log('Sections Columns:', schema.sections.map(c => c.name).join(', '));
+        console.log('Users Columns:', schema.users.map(c => c.name).join(', '));
+        
+        // 必須カラムのチェック
+        const required = ['memo', 'width', 'height', 'position_x', 'position_y'];
+        const missing = required.filter(r => !schema.sections.find(c => c.name === r));
+        if (missing.length > 0) {
+            window.debugLog(`CRITICAL SCHEMA ERROR: Missing columns ${missing.join(', ')}`, true);
+            alert(`データベースの更新が必要なようです。不足カラム: ${missing.join(', ')}\nアプリを再起動するか開発者に連絡してください。`);
+        }
+    } catch (e) {
+        console.warn('Schema check failed (might be legacy backend):', e);
+    }
+
     window.debugLog('SUCCESS: Initialization finished with no fatal errors.');
     } catch (e) {
         console.error('CRITICAL: Initialization failed!', e);

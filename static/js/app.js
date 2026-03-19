@@ -1,9 +1,9 @@
 // --- LOGGING SYSTEM ---
 window.debugLog = function(msg, isError = false) {
     if (isError) {
-        console.error('WowNote [v3.4-clean-ui]:', msg);
+        console.error('WowNote [v3.5-clean-ui]:', msg);
     } else {
-        console.log('WowNote [v3.4-clean-ui]:', msg);
+        console.log('WowNote [v3.5-clean-ui]:', msg);
     }
 };
 
@@ -86,7 +86,7 @@ window.openLegacyDirectorySelector = function() {
     document.getElementById('legacy-directory-input').click();
 };
 
-window.debugLog('DEBUG: app.js loaded v3.4-clean-ui');
+window.debugLog('DEBUG: app.js loaded v3.5-clean-ui');
 
 // 全域クリックハンドラ (デバッグ用)
 document.addEventListener('click', (e) => {
@@ -1305,7 +1305,7 @@ function deleteStorageFileAndHide(sectionId, filename) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.debugLog('DEBUG: DomContentLoaded triggered. Starting initialization...');
     try {
-        window.debugLog('App initialization started... (v3.4-clean-ui)');
+        window.debugLog('App initialization started... (v3.5-clean-ui)');
 
     // バージョン確認用アラート (一時的)
     // alert('WowNote Version 1.3 Loaded');
@@ -1320,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = `v3.5-debug [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
+        debugInfo.innerHTML = `v3.5-clean-ui [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
     }
 
     renderWorkspaceButtons();
