@@ -76,7 +76,13 @@ async function handleLogin(event) {
 
         if (response.ok) {
             hideLoginModal();
-            window.location.href = '/note/app'; // アプリページにリダイレクト
+            // デスクトップアプリ実行中の場合はアプリ画面へ。ブラウザの場合はログイン画面（またはトップ）に留まる
+            if (window.pywebview) {
+                window.location.href = '/note/app';
+            } else {
+                // ブラウザ版ではログイン後の画面（/app）に入れないため、メッセージを表示するかトップへ
+                window.location.href = '/note/?login_success=true';
+            }
         } else {
             errorEl.textContent = data.error || 'ログインに失敗しました';
             errorEl.style.display = 'block';
