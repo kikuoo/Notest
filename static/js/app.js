@@ -232,6 +232,7 @@ window.apiCall = async function(url, options = {}) {
                 'Content-Type': 'application/json',
                 ...options.headers
             },
+            credentials: 'include',
             ...options
         });
         if (!response.ok) {
@@ -1010,7 +1011,8 @@ window.createNewSection = async function(sectionType = 'text', x = null, y = nul
                     formData.append('file', file);
                     const response = await fetch('/note/api/upload', {
                         method: 'POST',
-                        body: formData
+                        body: formData,
+                        credentials: 'include'
                     });
                     if (!response.ok) throw new Error('Upload failed');
                     const fileData = await response.json();
@@ -1061,16 +1063,26 @@ window.createNewSection = async function(sectionType = 'text', x = null, y = nul
     }
 
     let contentType = 'text';
-    let defaultName = '新しいファイルビュー';
+    let defaultName = '新しいセクション';
+    let promptMsg = 'セクション名を入力してください（空白可）:';
 
     // セクションタイプに応じた設定
     if (sectionType === 'notepad') {
         contentType = 'notepad';
         defaultName = 'メモ帳';
+        promptMsg = 'メモ帳の名前を入力してください:';
     } else if (sectionType === 'storage') {
         contentType = 'storage';
-        defaultName = 'ストレージ';
+        defaultName = 'ファイルビュー';
+        promptMsg = '表示するフォルダの識別名を入力してください:';
+    } else if (sectionType === 'text') {
+        contentType = 'text';
+        defaultName = 'テキスト記述';
+        promptMsg = 'テキスト領域の名前を入力してください:';
     }
+
+    const name = prompt(promptMsg, defaultName);
+    if (name === null) return; // キャンセルされた場合
 
     // セクションタイプに応じた初期データを設定
     let contentData = { text: '' };
@@ -1079,9 +1091,6 @@ window.createNewSection = async function(sectionType = 'text', x = null, y = nul
     } else if (sectionType === 'storage') {
         contentData = { storage_type: 'local', path: '', view_mode: 'list' };
     }
-
-    const name = prompt('ファイルビュー名を入力してください（空白可）:', defaultName);
-    if (name === null) return; // キャンセルされた場合
 
     try {
         const section = await apiCall('/api/sections', {
@@ -1158,10 +1167,10 @@ function showPageContextMenu(e) {
     contextMenu.style.top = `${e.clientY}px`;
 
     contextMenu.innerHTML = `
-        <div class="context-menu-item" onclick="createNewSection('text', ${x}, ${y})">📝 ファイルビュー作成</div>
-        <div class="context-menu-item" onclick="createNewSection('notepad', ${x}, ${y})">📒 メモ帳作成</div>
-        <div class="context-menu-item" onclick="createNewSection('image', ${x}, ${y})">🖼️ 画像貼り付け</div>
-        <div class="context-menu-item" onclick="createNewSection('storage', ${x}, ${y})">📁 ストレージ作成</div>
+        <div class="context-menu-item" onclick="createNewSection('storage', ${x}, ${y})">📁 フォルダを表示(ファイルビュー)</div>
+        <div class="context-menu-item" onclick="createNewSection('notepad', ${x}, ${y})">📒 メモ帳を作成</div>
+        <div class="context-menu-item" onclick="createNewSection('image', ${x}, ${y})">🖼️ 画像を貼り付け</div>
+        <div class="context-menu-item" onclick="createNewSection('text', ${x}, ${y})">📝 テキスト入力領域を配置</div>
     `;
 
     document.body.appendChild(contextMenu);
@@ -1349,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = `v3.5-clean-ui [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
+        debugInfo.innerHTML = `v3.5.2-debug [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
     }
 
     renderWorkspaceButtons();
@@ -1851,7 +1860,8 @@ async function uploadImageToSection(file, sectionId) {
     try {
         const response = await fetch('/note/api/upload', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Upload failed');
@@ -1975,7 +1985,8 @@ async function uploadFileToSection(file, sectionId) {
     try {
         const response = await fetch('/note/api/upload', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Upload failed');
@@ -2723,7 +2734,8 @@ async function moveFileBetweenSections(sourceSectionId, targetSectionId, filenam
         const response = await fetch(`/note/api/sections/${sourceSectionId}/files/${encodeURIComponent(filename)}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_section_id: targetSectionId })
+            body: JSON.stringify({ target_section_id: targetSectionId }),
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Move failed');
@@ -2867,7 +2879,8 @@ async function pasteFile(targetSectionId) {
         const response = await fetch(`/note/api/sections/${clipboardFile.sectionId}/files/${encodeURIComponent(clipboardFile.filename)}/copy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_section_id: targetSectionId })
+            body: JSON.stringify({ target_section_id: targetSectionId }),
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Copy failed');
@@ -3200,7 +3213,7 @@ function setupDirectoryBrowserEvents() {
 
         if (storageType !== 'local') {
             try {
-                const response = await fetch('/note/api/system/cloud-storage-paths');
+                const response = await fetch('/note/api/system/cloud-storage-paths', { credentials: 'include' });
                 const cloudPaths = await response.json();
 
                 if (cloudPaths[storageType]) {
@@ -3443,7 +3456,7 @@ let subscriptionPollingTimer = null;
 async function loadSubscriptionStatus() {
     try {
         // user/status API は要認証なので、初期化前などに呼ばれた場合は無視される実装とする
-        const response = await fetch('/note/api/user/status');
+        const response = await fetch('/note/api/user/status', { credentials: 'include' });
         if (response.status === 401 || response.status === 403) return; // 未ログイン
         if (!response.ok) return;
 

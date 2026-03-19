@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import sys
+from datetime import timedelta
 
 class Config:
     REMOTE_SERVER_URL = os.environ.get('REMOTE_SERVER_URL', 'https://kikuoo0915.xsrv.jp/note')
@@ -38,10 +39,14 @@ class Config:
     
     # セッション・クッキー設定
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    PERMANENT_SESSION_LIFETIME = 30 * 24 * 60 * 60  # 30日間有効
-    REMEMBER_COOKIE_DURATION = 30 * 24 * 60 * 60    # ログイン保持期間も30日間
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
     SESSION_COOKIE_PATH = '/'  # /note プレフィックスに関わらず共通のクッキーを使用
     SESSION_PERMANENT = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
     
     # メール設定
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'sv16646.xserver.jp')

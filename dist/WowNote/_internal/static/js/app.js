@@ -1061,16 +1061,26 @@ window.createNewSection = async function(sectionType = 'text', x = null, y = nul
     }
 
     let contentType = 'text';
-    let defaultName = '新しいファイルビュー';
+    let defaultName = '新しいセクション';
+    let promptMsg = 'セクション名を入力してください（空白可）:';
 
     // セクションタイプに応じた設定
     if (sectionType === 'notepad') {
         contentType = 'notepad';
         defaultName = 'メモ帳';
+        promptMsg = 'メモ帳の名前を入力してください:';
     } else if (sectionType === 'storage') {
         contentType = 'storage';
-        defaultName = 'ストレージ';
+        defaultName = 'ファイルビュー';
+        promptMsg = '表示するフォルダの識別名を入力してください:';
+    } else if (sectionType === 'text') {
+        contentType = 'text';
+        defaultName = 'テキスト記述';
+        promptMsg = 'テキスト領域の名前を入力してください:';
     }
+
+    const name = prompt(promptMsg, defaultName);
+    if (name === null) return; // キャンセルされた場合
 
     // セクションタイプに応じた初期データを設定
     let contentData = { text: '' };
@@ -1079,9 +1089,6 @@ window.createNewSection = async function(sectionType = 'text', x = null, y = nul
     } else if (sectionType === 'storage') {
         contentData = { storage_type: 'local', path: '', view_mode: 'list' };
     }
-
-    const name = prompt('ファイルビュー名を入力してください（空白可）:', defaultName);
-    if (name === null) return; // キャンセルされた場合
 
     try {
         const section = await apiCall('/api/sections', {
@@ -1158,10 +1165,10 @@ function showPageContextMenu(e) {
     contextMenu.style.top = `${e.clientY}px`;
 
     contextMenu.innerHTML = `
-        <div class="context-menu-item" onclick="createNewSection('text', ${x}, ${y})">📝 ファイルビュー作成</div>
-        <div class="context-menu-item" onclick="createNewSection('notepad', ${x}, ${y})">📒 メモ帳作成</div>
-        <div class="context-menu-item" onclick="createNewSection('image', ${x}, ${y})">🖼️ 画像貼り付け</div>
-        <div class="context-menu-item" onclick="createNewSection('storage', ${x}, ${y})">📁 ストレージ作成</div>
+        <div class="context-menu-item" onclick="createNewSection('storage', ${x}, ${y})">📁 フォルダを表示(ファイルビュー)</div>
+        <div class="context-menu-item" onclick="createNewSection('notepad', ${x}, ${y})">📒 メモ帳を作成</div>
+        <div class="context-menu-item" onclick="createNewSection('image', ${x}, ${y})">🖼️ 画像を貼り付け</div>
+        <div class="context-menu-item" onclick="createNewSection('text', ${x}, ${y})">📝 テキスト入力領域を配置</div>
     `;
 
     document.body.appendChild(contextMenu);
