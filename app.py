@@ -359,6 +359,7 @@ def create_section():
         name=data.get('name'),
         content_type=data.get('content_type', 'text'),
         content_data=json.dumps(data.get('content_data')) if data.get('content_data') else None,
+        memo=data.get('memo'),
         order_index=data.get('order_index', 0),
         width=data.get('width', 300),
         height=data.get('height', 200),
@@ -1649,35 +1650,36 @@ def update_current_user():
 
 
 def init_db():
-    """データベースとテーブルの作成および不随するマイグレーション"""
+    """データベースとテーブルの作成および付随するマイグレーション"""
     with app.app_context():
         db.create_all()
         
-        # MySQL等の既存テーブルへのカラム追加 (開発の進展に伴う追記)
-        if not app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+        # 既存テーブルへのカラム追加 (MySQLおよびSQLite両対応)
+        # SQLAlchemy + text("ALTER TABLE ...") はカラムが存在するとエラーになるので try-except で囲む
+        def add_column_safely(table, column, definition):
             try:
                 from sqlalchemy import text
-                # remote_user_id の追加を確認
-                db.session.execute(text("ALTER TABLE users ADD COLUMN remote_user_id INTEGER NULL"))
+                db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
                 db.session.commit()
-                print("Added column remote_user_id to users table.")
+                print(f"Added column {column} to {table} table.")
             except Exception:
                 db.session.rollback()
-                # 既に存在する場合などはエラーになるので無視
 
-            try:
-                # 他のサブスク関連カラムも念のため追加を試みる
-                from sqlalchemy import text
-                db.session.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) NULL"))
-                db.session.execute(text("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255) NULL"))
-                db.session.execute(text("ALTER TABLE users ADD COLUMN subscription_status VARCHAR(50) DEFAULT 'trialing'"))
-                db.session.execute(text("ALTER TABLE users ADD COLUMN trial_end DATETIME NULL"))
-                db.session.execute(text("ALTER TABLE users ADD COLUMN current_period_end DATETIME NULL"))
-                db.session.execute(text("ALTER TABLE users ADD COLUMN cancel_at_period_end BOOLEAN DEFAULT FALSE"))
-                db.session.commit()
-                print("Sync subscription columns for legacy database.")
-            except Exception:
-                db.session.rollback()
+        # User テーブル
+        add_column_safely('users', 'remote_user_id', 'INTEGER NULL')
+        add_column_safely('users', 'stripe_customer_id', 'VARCHAR(255) NULL')
+        add_column_safely('users', 'stripe_subscription_id', 'VARCHAR(255) NULL')
+        add_column_safely('users', 'subscription_status', "VARCHAR(50) DEFAULT 'trialing'")
+        add_column_safely('users', 'trial_end', 'DATETIME NULL')
+        add_column_safely('users', 'current_period_end', 'DATETIME NULL')
+        add_column_safely('users', 'cancel_at_period_end', 'BOOLEAN DEFAULT FALSE')
+
+        # Section テーブル (初期版から追加されたカラム)
+        add_column_safely('sections', 'memo', 'TEXT NULL')
+        add_column_safely('sections', 'width', 'INTEGER DEFAULT 300')
+        add_column_safely('sections', 'height', 'INTEGER DEFAULT 200')
+        add_column_safely('sections', 'position_x', 'INTEGER DEFAULT 0')
+        add_column_safely('sections', 'position_y', 'INTEGER DEFAULT 0')
 
 # 初回起動時やインポート時にテーブル作成を確実に行う
 init_db()
