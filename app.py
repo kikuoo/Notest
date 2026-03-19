@@ -1690,7 +1690,7 @@ def init_db():
         print("[INIT_DB] Schema synchronization completed.")
 
 # 初回起動時やインポート時にテーブル作成を確実に行う
-init_db()
+# init_db() # Moved to desktop_app.py or explicit call
 
 @app.route('/api/system/check-db-schema', methods=['GET'])
 def check_db_schema():

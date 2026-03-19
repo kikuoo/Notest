@@ -21,17 +21,15 @@
                 <button class="ws-btn" onclick="switchWorkspace(2)">2</button>
                 <button class="ws-btn" onclick="switchWorkspace(3)">3</button>
             </div>
-            <div class="sidebar-header">
-                <h1 id="appTitle">WowNote</h1>
-                <div id="debug-info" style="font-size: 10px; color: #888; margin-top: -10px; margin-bottom: 5px;">v3.5</div>
-                <div style="margin-bottom: 15px;">
-                    <a href="javascript:location.reload(true)" style="font-size: 10px; color: #0066cc; text-decoration: none;">[強制リロード]</a>
+            <div class="sidebar-header" style="flex-direction: column; align-items: stretch; height: auto; gap: 10px; padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <h1 id="appTitle" style="margin: 0; font-size: 20px;">WowNote</h1>
+                    <div id="debug-info" style="font-size: 9px; color: #aaa; text-align: right;">v3.5</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
-                    <button class="btn-new-tab" id="btnNewTab">+ 新しいタブ</button>
-                    <button class="btn-secondary" id="btnManageHiddenTabs"
-                        style="font-size: 11px; padding: 4px; display: none;">非表示のタブを見る</button>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <a href="javascript:location.reload(true)" style="font-size: 11px; color: #4daafc; text-decoration: none;">[強制リロード]</a>
                 </div>
+                <button class="btn-primary" id="btnNewTab" style="width: 100%; padding: 8px; margin-top: 5px;">+ 新しいタブ</button>
             </div>
             <div class="tabs-list" id="tabsList">
                 <!-- タブが動的に追加されます -->
@@ -55,7 +53,11 @@
             <!-- ページコンテンツ -->
             <div class="page-content" id="pageContent">
                 <div class="empty-state" id="emptyState">
-                    <p>タブを選択するか、新しいタブを作成してください</p>
+                    <div style="text-align: center; padding: 40px; background: rgba(0,0,0,0.02); border-radius: 12px; border: 2px dashed #ddd;">
+                        <p style="margin-bottom: 15px; font-weight: 600; color: #666;">タブがありません</p>
+                        <p style="margin-bottom: 25px; color: #888; font-size: 14px;">まずは左側のサイドバーの「+ 新しいタブ」か、<br>下のボタンからタブを作成してください。</p>
+                        <button class="btn-primary" onclick="showModal('modalNewTab')" style="padding: 12px 24px; font-size: 16px;">+ 新しいタブを作成</button>
+                    </div>
                 </div>
             </div>
         </div>

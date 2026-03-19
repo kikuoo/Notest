@@ -359,38 +359,62 @@ async function deleteTab(tabId) {
 
 function renderTabs() {
     const tabsList = document.getElementById('tabsList');
+    if (!tabsList) return;
     tabsList.innerHTML = '';
 
-    // PC固有の非表示タブ設定を取得
-    const hiddenTabs = getHiddenTabs();
+    try {
+        // PC固有の非表示タブ設定を取得
+        const hiddenTabs = getHiddenTabs();
 
-    // 設定ボタンの表示/非表示を切り替え
-    const btnManageHiddenTabs = document.getElementById('btnManageHiddenTabs');
-    if (btnManageHiddenTabs) {
-        btnManageHiddenTabs.style.display = hiddenTabs.length > 0 ? 'block' : 'none';
+        // 設定ボタンの表示/非表示を切り替え
+        const btnManageHiddenTabs = document.getElementById('btnManageHiddenTabs');
+        if (btnManageHiddenTabs) {
+            btnManageHiddenTabs.style.display = hiddenTabs.length > 0 ? 'block' : 'none';
+        }
+
+        // 非表示タブを除外して表示
+        const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
+
+        // 全て非表示になっていて選択タブがない場合のフォールバック
+        if (visibleTabs.length > 0 && (!currentTabId || !visibleTabs.find(t => t.id === currentTabId))) {
+            // 自動選択は初回のみ、または以前のタブが消えた場合のみにする
+            // currentTabId = visibleTabs[0].id;
+        } else if (visibleTabs.length === 0) {
+            currentTabId = null;
+        }
+
+        visibleTabs.forEach(tab => {
+            const tabItem = document.createElement('div');
+            tabItem.className = `tab-item ${currentTabId === tab.id ? 'active' : ''}`;
+            tabItem.innerHTML = `
+                <span class="tab-item-name">${escapeHtml(tab.name)}</span>
+                <button class="tab-item-delete" onclick="event.stopPropagation(); deleteTab(${tab.id})" title="タブを削除">×</button>
+            `;
+            tabItem.onclick = () => selectTab(tab.id);
+            tabItem.oncontextmenu = (e) => showTabContextMenu(e, tab.id, tab.name);
+            tabsList.appendChild(tabItem);
+        });
+    } catch (error) {
+        console.error('CRITICAL: renderTabs failed:', error);
+        window.debugLog(`renderTabs error: ${error.message}`, true);
     }
 
-    // 非表示タブを除外して表示
-    const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
-
-    // 全て非表示になっていて選択タブがない場合のフォールバック
-    if (visibleTabs.length > 0 && (!currentTabId || !visibleTabs.find(t => t.id === currentTabId))) {
-        currentTabId = visibleTabs[0].id;
-    } else if (visibleTabs.length === 0) {
-        currentTabId = null;
+    // 常時表示の「+ 新しいタブ」ボタンをリストの最後に追加 (エラー時も試みる)
+    try {
+        const addTabBtn = document.createElement('div');
+        addTabBtn.className = 'tab-item add-tab-item';
+        addTabBtn.style.color = '#0078d4';
+        addTabBtn.style.fontWeight = 'bold';
+        addTabBtn.style.justifyContent = 'center';
+        addTabBtn.style.border = '1px dashed #0078d4';
+        addTabBtn.style.margin = '10px';
+        addTabBtn.style.cursor = 'pointer';
+        addTabBtn.innerHTML = '+ 新しいタブを追加';
+        addTabBtn.onclick = () => showModal('modalNewTab');
+        tabsList.appendChild(addTabBtn);
+    } catch (e) {
+        console.error('Failed to add the Add Tab button:', e);
     }
-
-    visibleTabs.forEach(tab => {
-        const tabItem = document.createElement('div');
-        tabItem.className = `tab-item ${currentTabId === tab.id ? 'active' : ''}`;
-        tabItem.innerHTML = `
-            <span class="tab-item-name">${escapeHtml(tab.name)}</span>
-            <button class="tab-item-delete" onclick="event.stopPropagation(); deleteTab(${tab.id})" title="タブを削除">×</button>
-        `;
-        tabItem.onclick = () => selectTab(tab.id);
-        tabItem.oncontextmenu = (e) => showTabContextMenu(e, tab.id, tab.name);
-        tabsList.appendChild(tabItem);
-    });
 }
 
 // タブのコンテキストメニュー
