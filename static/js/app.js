@@ -1059,21 +1059,26 @@ window.createNewSection = async function(sectionType = 'text', x = null, y = nul
     const name = prompt('ファイルビュー名を入力してください（空白可）:', defaultName);
     if (name === null) return; // キャンセルされた場合
 
-    const section = await apiCall('/api/sections', {
-        method: 'POST',
-        body: JSON.stringify({
-            page_id: currentPageId,
-            name: name || defaultName,
-            content_type: contentType,
-            content_data: contentData,
-            position_x: positionX,
-            position_y: positionY,
-            width: 300,
-            height: 200
-        })
-    });
-    sections.push(section);
-    renderPageContent();
+    try {
+        const section = await apiCall('/api/sections', {
+            method: 'POST',
+            body: JSON.stringify({
+                page_id: currentPageId,
+                name: name || defaultName,
+                content_type: contentType,
+                content_data: contentData,
+                position_x: positionX,
+                position_y: positionY,
+                width: 300,
+                height: 200
+            })
+        });
+        sections.push(section);
+        renderPageContent();
+    } catch (error) {
+        console.error('Section creation failed:', error);
+        alert('セクションの追加に失敗しました: ' + error.message);
+    }
 }
 
 // ... existing code ...

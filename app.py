@@ -393,8 +393,6 @@ def update_section(section_id):
         section.content_data = json.dumps(data['content_data'])
     if 'memo' in data:
         section.memo = data['memo']
-    if 'name' in data:
-        section.name = data['name']
     if 'width' in data:
         section.width = data['width']
     if 'height' in data:
@@ -1686,6 +1684,9 @@ def init_db():
         add_column_safely('sections', 'height', 'INTEGER DEFAULT 200')
         add_column_safely('sections', 'position_x', 'INTEGER DEFAULT 0')
         add_column_safely('sections', 'position_y', 'INTEGER DEFAULT 0')
+        
+        # 確実にDBを最新の状態に保つため、セッションををクリアして次回アクセスで反映させる
+        db.session.remove()
         print("[INIT_DB] Schema synchronization completed.")
 
 # 初回起動時やインポート時にテーブル作成を確実に行う

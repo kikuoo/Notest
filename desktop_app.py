@@ -1,6 +1,9 @@
+import os
+# デスクトップ版として起動していることを環境変数で明示 (Importより先に行う必要がある)
+os.environ['WOWNOTE_DESKTOP'] = 'true'
+
 import webview
 import subprocess
-import os
 import sys
 import platform
 import threading
@@ -16,8 +19,6 @@ def resource_path(relative_path):
 
 def start_backend():
     """Flaskバックエンドを別スレッドで起動"""
-    # デスクトップ版として起動していることを環境変数で明示
-    os.environ['WOWNOTE_DESKTOP'] = 'true'
     init_db()  # モデル読み込み後のタイミングでDB初期化
     app.run(host='127.0.0.1', port=5001, threaded=True)
 
