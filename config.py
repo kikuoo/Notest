@@ -36,8 +36,11 @@ class Config:
     MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB
     ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar'}
     
-    # セッション設定
+    # セッション・クッキー設定
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    PERMANENT_SESSION_LIFETIME = 30 * 24 * 60 * 60  # 30日間有効
+    SESSION_COOKIE_PATH = '/'  # /note プレフィックスに関わらず共通のクッキーを使用
+    SESSION_PERMANENT = True
     
     # メール設定
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'sv16646.xserver.jp')

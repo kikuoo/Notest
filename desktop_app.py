@@ -74,8 +74,8 @@ if __name__ == '__main__':
     t.start()
 
     # 2. メインウィンドウの作成
-    # ローカルのFlaskサーバーにアクセスする
-    target_url = 'http://127.0.0.1:5001/app'
+    # ローカルのFlaskサーバーにアクセスする (PrefixMiddlewareに対応)
+    target_url = 'http://127.0.0.1:5001/note/app'
     
     # デバッグモード判定
     is_debug = '--debug' in sys.argv
@@ -92,5 +92,7 @@ if __name__ == '__main__':
         text_select=True
     )
     
-    # 3. アプリケーションを開始
-    webview.start(debug=is_debug)
+    # アプリケーションを開始
+    # storage_path を指定することでクッキーやキャッシュを永続化する
+    storage_path = os.path.join(os.path.expanduser('~'), 'WowNoteData')
+    webview.start(debug=is_debug, storage_path=storage_path)

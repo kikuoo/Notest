@@ -1661,10 +1661,11 @@ def init_db():
                 from sqlalchemy import text
                 db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
                 db.session.commit()
-                print(f"Added column {column} to {table} table.")
+                print(f"[INIT_DB] Added column '{column}' to '{table}' table.")
             except Exception:
                 db.session.rollback()
 
+        print("[INIT_DB] Running schema migrations...")
         # User テーブル
         add_column_safely('users', 'remote_user_id', 'INTEGER NULL')
         add_column_safely('users', 'stripe_customer_id', 'VARCHAR(255) NULL')
@@ -1680,6 +1681,7 @@ def init_db():
         add_column_safely('sections', 'height', 'INTEGER DEFAULT 200')
         add_column_safely('sections', 'position_x', 'INTEGER DEFAULT 0')
         add_column_safely('sections', 'position_y', 'INTEGER DEFAULT 0')
+        print("[INIT_DB] Schema synchronization completed.")
 
 # 初回起動時やインポート時にテーブル作成を確実に行う
 init_db()

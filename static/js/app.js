@@ -251,9 +251,10 @@ window.apiCall = async function(url, options = {}) {
         window.debugLog(`API Success (${url})`);
         return data;
     } catch (error) {
+        console.error(`[API_CALL_ERROR] ${url}:`, error);
         window.debugLog(`API Failed (${url}): ${error.message}`, true);
         if (showAlert) {
-            alert('エラーが発生しました: ' + error.message);
+            alert('通信エラーが発生しました: ' + error.message + '\nURL: ' + url);
         }
         throw error;
     }
@@ -558,15 +559,20 @@ async function selectTab(tabId, preferredPageId = null) {
 
     if (pages.length > 0) {
         // preferredPageIdが指定されていて、そのページが存在する場合はそれを選択
-        if (preferredPageId && pages.find(p => p.id === preferredPageId)) {
-            selectPage(preferredPageId);
-        } else {
-            // それ以外は最初のページを選択
-            selectPage(pages[0].id);
+        let pageToSelect = pages[0].id;
+        if (preferredPageId) {
+            const found = pages.find(p => p.id === preferredPageId);
+            if (found) {
+                pageToSelect = found.id;
+            } else {
+                window.debugLog(`Preferred page ID ${preferredPageId} not found in tab ${tabId}. Defaulting to first page.`);
+            }
         }
+        await selectPage(pageToSelect);
     } else {
         currentPageId = null;
         localStorage.removeItem('currentPageId');
+        localStorage.removeItem(`notest_current_page_id_ws${currentWorkspace}`);
         renderPageContent();
     }
 }
