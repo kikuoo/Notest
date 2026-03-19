@@ -1128,9 +1128,8 @@ body.dark-theme .section-header.notepad-header .section-btn-icon:hover {
     font-size: 20px;
     margin: 0;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
+    overflow: visible;
+    flex: 0 0 auto;
     color: white;
 }
 
