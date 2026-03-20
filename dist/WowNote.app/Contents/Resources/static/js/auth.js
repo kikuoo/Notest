@@ -69,7 +69,8 @@ async function handleLogin(event) {
         const response = await fetch('/note/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, remember })
+            body: JSON.stringify({ email, password, remember }),
+            credentials: 'include'
         });
 
         const data = await response.json();
@@ -108,7 +109,8 @@ async function handleEmailSubmit(event) {
         const response = await fetch('/note/api/auth/request-registration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email }),
+            credentials: 'include'
         });
 
         const data = await response.json();
@@ -159,7 +161,7 @@ function startTokenPolling(email) {
 // メールトークンを検証
 async function verifyEmailToken(token) {
     try {
-        const response = await fetch(`/note/api/auth/verify-email/${token}`);
+        const response = await fetch(`/note/api/auth/verify-email/${token}`, { credentials: 'include' });
         const data = await response.json();
 
         if (response.ok) {
@@ -207,7 +209,8 @@ async function handleRegistration(event) {
                 token,
                 password,
                 agreedToTerms
-            })
+            }),
+            credentials: 'include'
         });
 
         const data = await response.json();
@@ -246,7 +249,8 @@ async function handleForgotPassword(event) {
         const response = await fetch('/note/api/auth/forgot-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email }),
+            credentials: 'include'
         });
 
         const data = await response.json();
@@ -296,7 +300,8 @@ async function handleResetPassword(event) {
         const response = await fetch('/note/api/auth/reset-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, password })
+            body: JSON.stringify({ token, password }),
+            credentials: 'include'
         });
 
         const data = await response.json();
@@ -333,7 +338,8 @@ async function handleLogout() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            credentials: 'include'
         });
 
         // ログアウト成功またはエラーに関わらず、ログインページにリダイレクト
@@ -368,7 +374,7 @@ async function initUserMenu() {
     if (!container) return;
 
     try {
-        const response = await fetch('/note/api/auth/me');
+        const response = await fetch('/note/api/auth/me', { credentials: 'include' });
 
         if (response.ok) {
             // ログイン済み

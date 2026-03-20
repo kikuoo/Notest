@@ -183,9 +183,21 @@ class PasswordResetToken(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+@app.before_request
+def log_request_info():
+    if request.path.startswith('/api/') or request.path.startswith('/note/api/'):
+        print(f"--- API Request: {request.path} ---")
+        print(f"Cookies: {request.cookies.keys()}")
+        if 'remember_token' in request.cookies:
+            print("Found remember_token in cookies")
+        if 'session' in request.cookies:
+            print("Found session in cookies")
+
 @login_manager.unauthorized_handler
 def unauthorized():
-    """未ログイン時のリダイレクト"""
+    """未ログイン時の処理"""
+    if request.path.startswith('/api/') or request.path.startswith('/note/api/'):
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     return redirect(url_for('login_view'))
 
 @app.route('/')

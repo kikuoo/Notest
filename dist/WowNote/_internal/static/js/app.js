@@ -232,6 +232,7 @@ window.apiCall = async function(url, options = {}) {
                 'Content-Type': 'application/json',
                 ...options.headers
             },
+            credentials: 'include',
             ...options
         });
         if (!response.ok) {
@@ -817,9 +818,9 @@ function renderPageContent() {
     dropdown.className = 'section-dropdown';
     dropdown.id = 'sectionDropdown';
     dropdown.innerHTML = `
-        <div class="dropdown-item" onclick="createNewSection('text')">
-            <span class="dropdown-icon">📄</span>
-            <span>ファイルビュー</span>
+        <div class="dropdown-item" onclick="createNewSection('storage')">
+            <span class="dropdown-icon">📁</span>
+            <span>フォルダ表示(ファイルビュー)</span>
         </div>
         <div class="dropdown-item" onclick="createNewSection('notepad')">
             <span class="dropdown-icon">📋</span>
@@ -1010,7 +1011,8 @@ window.createNewSection = async function(sectionType = 'text', x = null, y = nul
                     formData.append('file', file);
                     const response = await fetch('/note/api/upload', {
                         method: 'POST',
-                        body: formData
+                        body: formData,
+                        credentials: 'include'
                     });
                     if (!response.ok) throw new Error('Upload failed');
                     const fileData = await response.json();
@@ -1356,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = `v3.5-clean-ui [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
+        debugInfo.innerHTML = `v3.5.4-debug [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
     }
 
     renderWorkspaceButtons();
@@ -1858,7 +1860,8 @@ async function uploadImageToSection(file, sectionId) {
     try {
         const response = await fetch('/note/api/upload', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Upload failed');
@@ -1982,7 +1985,8 @@ async function uploadFileToSection(file, sectionId) {
     try {
         const response = await fetch('/note/api/upload', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Upload failed');
@@ -2631,7 +2635,6 @@ async function uploadFileToStorage(sectionId, file) {
 
     // ローカルファイルシステムへの書き込み
     try {
-        // 書き込み権限を確認
         let perm = await currentHandle.queryPermission({ mode: 'readwrite' });
         if (perm === 'prompt') perm = await currentHandle.requestPermission({ mode: 'readwrite' });
         if (perm !== 'granted') {
@@ -2730,7 +2733,8 @@ async function moveFileBetweenSections(sourceSectionId, targetSectionId, filenam
         const response = await fetch(`/note/api/sections/${sourceSectionId}/files/${encodeURIComponent(filename)}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_section_id: targetSectionId })
+            body: JSON.stringify({ target_section_id: targetSectionId }),
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Move failed');
@@ -2874,7 +2878,8 @@ async function pasteFile(targetSectionId) {
         const response = await fetch(`/note/api/sections/${clipboardFile.sectionId}/files/${encodeURIComponent(clipboardFile.filename)}/copy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_section_id: targetSectionId })
+            body: JSON.stringify({ target_section_id: targetSectionId }),
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Copy failed');
@@ -2924,7 +2929,10 @@ async function extractZipFile(sectionId, filename) {
 
     try {
         const response = await fetch(`/note/api/sections/${sectionId}/files/${encodeURIComponent(filename)}/extract`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: filename }),
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Extract failed');
@@ -3207,7 +3215,7 @@ function setupDirectoryBrowserEvents() {
 
         if (storageType !== 'local') {
             try {
-                const response = await fetch('/note/api/system/cloud-storage-paths');
+                const response = await fetch('/note/api/system/cloud-storage-paths', { credentials: 'include' });
                 const cloudPaths = await response.json();
 
                 if (cloudPaths[storageType]) {
@@ -3450,7 +3458,7 @@ let subscriptionPollingTimer = null;
 async function loadSubscriptionStatus() {
     try {
         // user/status API は要認証なので、初期化前などに呼ばれた場合は無視される実装とする
-        const response = await fetch('/note/api/user/status');
+        const response = await fetch('/note/api/user/status', { credentials: 'include' });
         if (response.status === 401 || response.status === 403) return; // 未ログイン
         if (!response.ok) return;
 

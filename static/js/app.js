@@ -818,9 +818,9 @@ function renderPageContent() {
     dropdown.className = 'section-dropdown';
     dropdown.id = 'sectionDropdown';
     dropdown.innerHTML = `
-        <div class="dropdown-item" onclick="createNewSection('text')">
-            <span class="dropdown-icon">📄</span>
-            <span>ファイルビュー</span>
+        <div class="dropdown-item" onclick="createNewSection('storage')">
+            <span class="dropdown-icon">📁</span>
+            <span>フォルダ表示(ファイルビュー)</span>
         </div>
         <div class="dropdown-item" onclick="createNewSection('notepad')">
             <span class="dropdown-icon">📋</span>
@@ -1358,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DEBUG: バージョン表示の更新
     const debugInfo = document.getElementById('debug-info');
     if (debugInfo) {
-        debugInfo.innerHTML = `v3.5.2-debug [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
+        debugInfo.innerHTML = `v3.5.4-debug [WS: ${currentWorkspace}] [Tab: ${currentTabId || 'None'}] [Page: ${currentPageId || 'None'}]`;
     }
 
     renderWorkspaceButtons();
@@ -2635,7 +2635,6 @@ async function uploadFileToStorage(sectionId, file) {
 
     // ローカルファイルシステムへの書き込み
     try {
-        // 書き込み権限を確認
         let perm = await currentHandle.queryPermission({ mode: 'readwrite' });
         if (perm === 'prompt') perm = await currentHandle.requestPermission({ mode: 'readwrite' });
         if (perm !== 'granted') {
@@ -2930,7 +2929,10 @@ async function extractZipFile(sectionId, filename) {
 
     try {
         const response = await fetch(`/note/api/sections/${sectionId}/files/${encodeURIComponent(filename)}/extract`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: filename }),
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Extract failed');

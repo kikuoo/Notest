@@ -18,7 +18,8 @@ async function uploadSectionImage(sectionId, file) {
 
         const response = await fetch(`/note/api/sections/${sectionId}/image`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         if (!response.ok) {
