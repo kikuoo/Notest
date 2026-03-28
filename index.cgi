@@ -17,8 +17,25 @@ try:
     from wsgiref.handlers import CGIHandler
     from app import app
     
-    # 実行
-    CGIHandler().run(app)
+    # ----------------------------------------------------
+    # エラーを画面に表示するための特別なラッパー（デバッグ用）
+    # ----------------------------------------------------
+    class ExceptionCatchingMiddleware:
+        def __init__(self, app):
+            self.app = app
+
+        def __call__(self, environ, start_response):
+            try:
+                return self.app(environ, start_response)
+            except Exception as e:
+                import traceback
+                error_msg = traceback.format_exc()
+                start_response('500 Internal Server Error', [('Content-Type', 'text/plain; charset=utf-8')])
+                return [b"Flask Application Error:\n\n", error_msg.encode('utf-8')]
+
+    # ラッパー経由でアプリを実行
+    wrapped_app = ExceptionCatchingMiddleware(app.wsgi_app)
+    CGIHandler().run(wrapped_app)
     
 except Exception as e:
     # ブラウザにエラーを表示（デバッグ用）
