@@ -18,24 +18,16 @@ try:
     from app import app
     
     # ----------------------------------------------------
-    # エラーを画面に表示するための特別なラッパー（デバッグ用）
+    # エラー詳細をブラウザに表示するためのカスタムハンドラー
     # ----------------------------------------------------
-    class ExceptionCatchingMiddleware:
-        def __init__(self, app):
-            self.app = app
+    class DebugCGIHandler(CGIHandler):
+        def error_output(self, environ, start_response):
+            error_details = traceback.format_exc()
+            start_response('500 Internal Server Error', [('Content-Type', 'text/plain; charset=utf-8')])
+            return [b"Detailed Python Error:\n\n", error_details.encode('utf-8')]
 
-        def __call__(self, environ, start_response):
-            try:
-                return self.app(environ, start_response)
-            except Exception as e:
-                import traceback
-                error_msg = traceback.format_exc()
-                start_response('500 Internal Server Error', [('Content-Type', 'text/plain; charset=utf-8')])
-                return [b"Flask Application Error:\n\n", error_msg.encode('utf-8')]
-
-    # ラッパー経由でアプリを実行
-    wrapped_app = ExceptionCatchingMiddleware(app.wsgi_app)
-    CGIHandler().run(wrapped_app)
+    # カスタムハンドラーでアプリを実行
+    DebugCGIHandler().run(app)
     
 except Exception as e:
     # ブラウザにエラーを表示（デバッグ用）
