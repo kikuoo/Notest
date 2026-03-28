@@ -1,0 +1,14 @@
+DirectoryIndex index.cgi
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # staticディレクトリや既存のファイルは無視する
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    # それ以外はすべて index.cgi に送る
+    RewriteRule ^(.*)$ index.cgi/$1 [L]
+</IfModule>
+
+# CGIの実行を許可
+Options +ExecCGI
+AddHandler cgi-script .cgi
